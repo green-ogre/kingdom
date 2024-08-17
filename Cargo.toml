@@ -4,22 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.14.1", features = ["dynamic_linking"] }
-bevy_ecs_tilemap = "0.14.0"
-bevy_ecs_ldtk = { version = "0.10.0", features = ["atlas"] }
+bevy = { version = "0.14.1", features = ["dynamic_linking", "wav"] }
 rand = "0.8.5"
-fxhash = "0.2.1"
-# avian2d = { version = "0.1", default-features = false, features = [
-#   "2d",
-#   "bevy_scene",
-#   "debug-plugin",
-#   "f32",
-#   "parry-f32",
-# ] }
-leafwing-input-manager = "0.15"
 bevy-inspector-egui = "0.25.2"
-bevy_hanabi = "0.12.2"
+bevy_asset_loader = "0.21.0"
+bevy_tweening = "0.11.0"
 sickle_ui = "0.2.1"
+serde = "1"
+
+[dependencies.bevy_common_assets]
+version = "0.11.0"
+features = ["yaml"]
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

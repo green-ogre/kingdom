@@ -1,0 +1,14 @@
+name: Merideth
+class: Peasant
+sprite_path: >
+  characters/merideth.png
+requests:
+  - text: |
+      Sir, I did not vote for you.
+    yes:
+      heart_size: 10
+      peasant_happiness: 10
+      tax_income: -10
+    no:
+      heart_size: -10
+      peasant_happiness: -10

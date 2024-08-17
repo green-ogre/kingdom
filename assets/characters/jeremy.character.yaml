@@ -1,0 +1,23 @@
+name: Jeremy
+class: Peasant
+sprite_path: >
+  characters/jeremy.png
+requests:
+  - text: |
+      Sire, would you consider lowering the taxes levied on your humble subjects? Some of us must sacrifice greatly under such a burden.
+    yes:
+      heart_size: 10
+      peasant_happiness: 10
+      tax_income: -10
+    no:
+      heart_size: -10
+      peasant_happiness: -10
+  - text: |
+      Please sire, I will award ye with fresh liver!
+    yes:
+      heart_size: 10
+      peasant_happiness: 10
+      tax_income: -10
+    no:
+      heart_size: -10
+      peasant_happiness: -10
