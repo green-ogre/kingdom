@@ -1,0 +1,16 @@
+{
+	"identifier": "Level_0",
+	"uniqueIdentifer": "801fccf1-4ce0-11ef-952c-07cb41bb04b6",
+	"x": 0,
+	"y": 0,
+	"width": 256,
+	"height": 256,
+	"bgColor": "#696A79",
+	"neighbourLevels": [],
+	"customFields" : {},
+	"layers": [
+		"IntGrid.png",
+		"Tiles.png"
+	],
+	"entities" : {}
+}
