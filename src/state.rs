@@ -4,7 +4,8 @@ use sickle_ui::ui_commands::UpdateStatesExt;
 
 use crate::{
     character::{Character, Characters, Request, SelectedCharacter},
-    Decision, GameState,
+    ui::Decision,
+    GameState,
 };
 
 pub struct StatePlugin;

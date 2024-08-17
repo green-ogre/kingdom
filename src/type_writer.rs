@@ -64,8 +64,10 @@ impl TypeWriter {
     pub fn slice_with_line_wrap(&self) -> String {
         let mut slice = self.string[self.slice_range.clone()].to_owned();
         if let Some(last) = self.string.split_whitespace().last() {
-            for _ in 0..last.len() {
-                slice.push(' ');
+            if let Some(last_of_slice) = slice.split_whitespace().last() {
+                for _ in 0..last.len().saturating_sub(last_of_slice.len()) {
+                    slice.push(' ');
+                }
             }
         }
 
