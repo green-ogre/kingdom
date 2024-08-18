@@ -1,7 +1,7 @@
 use super::KingdomState;
 use crate::{
     character::{Character, Characters},
-    ui::Decision,
+    ui::{Decision, DecisionType},
 };
 use bevy::{ecs::system::SystemId, prelude::*};
 use foldhash::HashMap;
@@ -59,7 +59,7 @@ pub struct SmithyState {
 }
 
 fn smithy_strikers(state: Res<KingdomState>, mut smithy: ResMut<SmithyState>) {
-    if matches!(state.last_decision, Some(Decision::Yes)) {
+    if matches!(state.last_decision, Some(DecisionType::Yes)) {
         smithy.granted_strikers = true;
     }
 }
