@@ -1,18 +1,17 @@
 name: Princess
 class: Royal
-sprite_path: "characters/prince.png"
+sprite_path: "characters/images/prince.png"
 requests:
   - - text: |
-        some nice text
+        My King, before us lies an unusual opportunity. I've received word that the Lower Kingdom, which Your Majesty may recall is especially brutal, seeks our alliance. We would do well to graciously accept. We could use a few more honored guests in our court, if it please Your majesty.
       yes:
-        heart_size: 10
-        happiness: 10
-        wealth: -10
-      no:
         heart_size: -10
+        last_word: I shall bring glad tidings.
+      no:
+        heart_size: 10
+        last_word: Of course, my King.
   - - text: |
-        That good-for-nothing prince killed our dear mother on the day of his birth.
-        If you don't grow a spine, he'll be the death of you, too.
+        That good-for-nothing tramp killed our dear mother on the day of his birth. If you don't grow a spine, he'll be the death of you, too.
       yes:
         heart_size: 10
         happiness: 10

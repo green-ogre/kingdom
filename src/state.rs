@@ -56,6 +56,7 @@ pub struct StateUpdate {
     pub wealth: f32,
     pub happiness: f32,
     pub can_use_insight: Option<bool>,
+    pub last_word: Option<String>,
 }
 
 impl KingdomState {

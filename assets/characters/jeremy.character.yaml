@@ -1,11 +1,11 @@
 name: Jeremy
 class: Peasant
 sprite_path: >
-  characters/jeremy.png
+  characters/images/jeremy.png
 requests:
   # day one
   - - text: |
-        Sire, would you consider lowering the taxes levied on your humble subjects? Some of us must sacrifice greatly under such a burden.
+        Sire, would you consider lowering the taxes levied on Your humble subjects? Some of us must sacrifice greatly under such a burden.
       yes:
         heart_size: 10
         peasant_happiness: 10

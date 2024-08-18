@@ -1,5 +1,8 @@
 use super::KingdomState;
-use crate::character::{Character, Characters};
+use crate::{
+    character::{Character, Characters},
+    ui::Decision,
+};
 use bevy::{ecs::system::SystemId, prelude::*};
 use foldhash::HashMap;
 
@@ -7,7 +10,8 @@ pub struct HandlerPlugin;
 
 impl Plugin for HandlerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, (ResponseHandlers::insert, Filters::insert));
+        app.insert_resource(SmithyState::default())
+            .add_systems(Startup, (ResponseHandlers::insert, Filters::insert));
     }
 }
 
@@ -45,12 +49,19 @@ handler_map! {
     ///
     /// These can be used within requests to produce arbitrary side effects after a response.
     ResponseHandlers,
-    test,
+    smithy_strikers,
     test2
 }
 
-fn test(time: Res<Time>) {
-    println!("Hello, world! {}", time.delta_seconds());
+#[derive(Debug, Default, Resource)]
+pub struct SmithyState {
+    granted_strikers: bool,
+}
+
+fn smithy_strikers(state: Res<KingdomState>, mut smithy: ResMut<SmithyState>) {
+    if matches!(state.last_decision, Some(Decision::Yes)) {
+        smithy.granted_strikers = true;
+    }
 }
 
 fn test2(time: Res<Time>) {

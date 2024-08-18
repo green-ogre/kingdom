@@ -46,6 +46,12 @@ pub struct CharacterAssets {
     prince: Handle<Character>,
     #[asset(path = "characters/princess.character.yaml")]
     princess: Handle<Character>,
+    #[asset(path = "characters/blacksmith.character.yaml")]
+    blacksmith: Handle<Character>,
+    #[asset(path = "characters/tax-man.character.yaml")]
+    tax_man: Handle<Character>,
+    #[asset(path = "characters/village-leader.character.yaml")]
+    village_leader: Handle<Character>,
 }
 
 #[derive(Debug, Resource)]
@@ -57,10 +63,16 @@ pub struct Characters {
 
 fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets>) {
     let mut characters = HashMap::default();
-    characters.insert("jeremy", character_assets.jeremy.clone());
-    characters.insert("merideth", character_assets.merideth.clone());
-    characters.insert("prince", character_assets.prince.clone());
-    characters.insert("princess", character_assets.princess.clone());
+
+    characters.extend([
+        ("jeremy", character_assets.jeremy.clone()),
+        ("merideth", character_assets.merideth.clone()),
+        ("prince", character_assets.prince.clone()),
+        ("princess", character_assets.princess.clone()),
+        ("blacksmith", character_assets.blacksmith.clone()),
+        ("tax-man", character_assets.tax_man.clone()),
+        ("village-leader", character_assets.village_leader.clone()),
+    ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
     commands.insert_resource(Characters {
@@ -274,6 +286,11 @@ impl Character {
 #[derive(Debug, Deserialize, Asset, Component, Reflect)]
 pub enum Class {
     Peasant,
+    Craftsman,
+    Artist,
+    Merchant,
+    Priest,
+    Lord,
     Royal,
 }
 

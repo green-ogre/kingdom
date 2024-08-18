@@ -1,7 +1,7 @@
 name: Merideth
 class: Peasant
 sprite_path: >
-  characters/merideth.png
+  characters/images/merideth.png
 requests:
   # day one
   - - text: |
