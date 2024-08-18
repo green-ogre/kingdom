@@ -1,6 +1,6 @@
 use crate::{
     character::{Character, Characters, Request, SelectedCharacter},
-    ui::Decision,
+    ui::{Decision, DecisionType},
     GameState,
 };
 use bevy::prelude::*;
@@ -23,6 +23,7 @@ impl Plugin for StatePlugin {
             })
             .add_event::<Decision>()
             .add_event::<NewHeartSize>()
+            .add_event::<EndDay>()
             .add_systems(
                 PostUpdate,
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
@@ -38,9 +39,12 @@ pub struct KingdomState {
     pub wealth: f32,
     pub happiness: f32,
     pub can_use_insight: bool,
-    pub last_decision: Option<Decision>,
+    pub last_decision: Option<DecisionType>,
     pub day: usize,
 }
+
+#[derive(Event)]
+pub struct EndDay;
 
 #[derive(Debug, Deserialize, Default, Asset, Resource, Reflect, Clone)]
 #[serde(default)]
@@ -55,11 +59,11 @@ impl KingdomState {
     pub fn apply_request_decision<'a>(
         &mut self,
         request: &'a Request,
-        decision: Decision,
+        decision: DecisionType,
     ) -> &'a StateUpdate {
         let result = match decision {
-            Decision::Yes => &request.yes,
-            Decision::No => &request.no,
+            DecisionType::Yes => &request.yes,
+            DecisionType::No => &request.no,
         };
 
         self.last_decision = Some(decision);
@@ -90,7 +94,6 @@ fn update_state(
     mut state: ResMut<KingdomState>,
     mut reader: EventReader<Decision>,
     mut writer: EventWriter<NewHeartSize>,
-    selected_character: Res<SelectedCharacter>,
     mut characters: ResMut<Assets<Character>>,
     system: Res<Characters>,
     response_handlers: Res<handlers::ResponseHandlers>,
@@ -100,8 +103,13 @@ fn update_state(
         return;
     }
 
-    if let Some(character) = characters.get_mut(&selected_character.0) {
-        if let Some(decision) = reader.read().last() {
+    if let Some(decision) = reader.read().last() {
+        let character = match decision {
+            Decision::Yes(c) => c,
+            Decision::No(c) => c,
+        };
+
+        if let Some(character) = characters.get_mut(character) {
             info!(
                 "applying decision [{decision:?}] for character [{}]",
                 character.name
@@ -110,7 +118,7 @@ fn update_state(
             let request = character
                 .request(state.day)
                 .expect("Character presented with valid request");
-            state.apply_request_decision(request, *decision);
+            state.apply_request_decision(request, decision.into());
 
             for handler in request.response_handlers.iter() {
                 match response_handlers.0.get(handler.as_str()) {
@@ -123,11 +131,6 @@ fn update_state(
 
             writer.send(NewHeartSize(state.heart_size));
         }
-    } else {
-        if !reader.is_empty() {
-            error!("did not handle decision due to unloaded character");
-        }
-        return;
     }
 
     // run filters

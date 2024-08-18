@@ -43,6 +43,7 @@ fn main() {
                 .continue_to_state(GameState::Main)
                 .load_collection::<CharacterAssets>(),
         )
+        .insert_resource(ClearColor(Color::BLACK))
         .add_systems(OnEnter(GameState::Main), setup)
         .add_systems(Update, (close_on_escape, animated_sprites::animate_sprites))
         .run();

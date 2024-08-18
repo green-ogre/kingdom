@@ -1,20 +1,26 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
-use crate::character::CharacterUi;
+use crate::character::{self, Character, CharacterUi, Characters, SelectedCharacter};
 use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH};
-use crate::state::{KingdomState, NewHeartSize};
+use crate::state::{EndDay, KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
 use bevy::audio::PlaybackMode;
-use bevy::render::view::RenderLayers;
+use bevy::input::keyboard::KeyboardInput;
+use bevy::input::mouse::MouseButtonInput;
+use bevy::input::ButtonState;
 use bevy::ui::ContentSize;
 use bevy::window::PrimaryWindow;
 use bevy::{audio::Volume, prelude::*};
 use bevy_tweening::*;
 use lens::{TransformRotateZLens, TransformScaleLens};
 use rand::Rng;
+use sickle_ui::ui_commands::UpdateStatesExt;
 use sickle_ui::{prelude::*, SickleUiPlugin};
+use std::ops::Deref;
 use std::time::Duration;
 
 use crate::GameState;
+
+const INSIGHT_CHARGE_TIME: f32 = 1.0;
 
 pub struct UiPlugin;
 
@@ -29,21 +35,204 @@ impl Plugin for UiPlugin {
                     setup_heart_ui,
                     setup_courtroom,
                     setup_background,
+                    setup_cursor,
                 ),
             )
             .add_systems(
                 Update,
-                (heart_ui, mask_ui, update_cursor).run_if(in_state(GameState::Main)),
+                (
+                    heart_ui,
+                    mask_ui,
+                    update_cursor,
+                    display_insight_tooltip,
+                    display_insight,
+                )
+                    .run_if(in_state(GameState::Main)),
+            )
+            .add_systems(
+                PostUpdate,
+                (aquire_insight, fade_to_black, fade_from_black).run_if(in_state(GameState::Main)),
             )
             .add_systems(
                 PreUpdate,
-                should_show_selection_ui.run_if(in_state(GameState::Main)),
+                (should_show_selection_ui, end_day_and_enter_next)
+                    .run_if(in_state(GameState::Main)),
             )
             .add_systems(FixedPreUpdate, (animate_clouds, animate_crowd))
             .add_systems(Update, selection_ui.run_if(in_state(GameState::Main)))
             .add_systems(OnEnter(GameState::Win), win_ui)
             .add_systems(OnEnter(GameState::Loose), loose_ui)
-            .register_type::<Decision>();
+            .add_event::<AquireInsight>()
+            .add_event::<FinishedFadeFromBlack>()
+            .add_event::<FinishedFadeToBlack>()
+            .insert_resource(DayNumberUi::default())
+            .insert_resource(Insight::default());
+    }
+}
+
+#[derive(Resource, Default)]
+struct DayNumberUi(Option<Timer>);
+
+fn end_day_and_enter_next(
+    mut commands: Commands,
+    mut end_day: EventReader<EndDay>,
+    mut finish_fade_to_black: EventReader<FinishedFadeToBlack>,
+    mut finish_fade_from_black: EventReader<FinishedFadeFromBlack>,
+    mut next_day_ui: Query<(&mut Visibility, &mut Text), With<NextDayUi>>,
+    mut day_number_ui: ResMut<DayNumberUi>,
+    characters: Res<Characters>,
+    state: Res<KingdomState>,
+    time: Res<Time>,
+    server: Res<AssetServer>,
+) {
+    for _ in end_day.read() {
+        commands.insert_resource(FadeToBlack::new(0.5, 4));
+        commands.spawn(AudioBundle {
+            source: server.load("audio/church_bells.wav"),
+            settings: PlaybackSettings::default().with_volume(Volume::new(0.5)),
+        });
+    }
+
+    for _ in finish_fade_to_black.read() {
+        let (mut vis, mut text) = next_day_ui.single_mut();
+        *vis = Visibility::Visible;
+        text.sections[0].value = format!("Day {}", state.day);
+        day_number_ui.0 = Some(Timer::from_seconds(4., TimerMode::Once));
+    }
+
+    if let Some(timer) = &mut day_number_ui.0 {
+        timer.tick(time.delta());
+        if timer.finished() {
+            commands.insert_resource(FadeFromBlack::new(0.5, 4));
+            day_number_ui.0 = None;
+
+            let (mut vis, _) = next_day_ui.single_mut();
+            *vis = Visibility::Hidden;
+        }
+    }
+
+    for _ in finish_fade_from_black.read() {
+        commands.run_system(characters.choose_new_character);
+    }
+}
+
+#[derive(Event)]
+pub struct FinishedFadeToBlack;
+
+#[derive(Resource)]
+pub struct FadeToBlack {
+    timer_per_step: Timer,
+    total_steps: u32,
+    steps: u32,
+}
+
+impl FadeToBlack {
+    pub fn new(secs_per_step: f32, steps: u32) -> Self {
+        Self {
+            timer_per_step: Timer::from_seconds(secs_per_step, TimerMode::Repeating),
+            total_steps: steps,
+            steps,
+        }
+    }
+}
+
+fn fade_to_black(
+    mut commands: Commands,
+    mut ui_images: Query<&mut UiImage, With<UiNode>>,
+    mut ui_text: Query<&mut Text, With<UiNode>>,
+    fade_to_black: Option<ResMut<FadeToBlack>>,
+    mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
+    time: Res<Time>,
+    mut writer: EventWriter<FinishedFadeToBlack>,
+) {
+    if let Some(mut fade) = fade_to_black {
+        fade.timer_per_step.tick(time.delta());
+        if fade.timer_per_step.finished() {
+            fade.steps = fade.steps.saturating_sub(1);
+
+            for mut image in ui_images.iter_mut() {
+                let a = image.color.alpha();
+                image.color.set_alpha(a - 1.0 / fade.total_steps as f32);
+            }
+
+            for mut text in ui_text.iter_mut() {
+                for section in text.sections.iter_mut() {
+                    let color = &mut section.style.color;
+                    let a = color.alpha();
+                    color.set_alpha(a - 1.0 / fade.total_steps as f32);
+                }
+            }
+
+            let mut sprite = sprite.single_mut();
+            let a = sprite.color.alpha();
+            sprite.color.set_alpha(a + 1.0 / fade.total_steps as f32);
+
+            if fade.steps == 0 {
+                commands.remove_resource::<FadeToBlack>();
+                writer.send(FinishedFadeToBlack);
+                return;
+            }
+        }
+    }
+}
+
+#[derive(Event)]
+pub struct FinishedFadeFromBlack;
+
+#[derive(Resource)]
+pub struct FadeFromBlack {
+    timer_per_step: Timer,
+    total_steps: u32,
+    steps: u32,
+}
+
+impl FadeFromBlack {
+    pub fn new(secs_per_step: f32, steps: u32) -> Self {
+        Self {
+            timer_per_step: Timer::from_seconds(secs_per_step, TimerMode::Repeating),
+            total_steps: steps,
+            steps,
+        }
+    }
+}
+
+fn fade_from_black(
+    mut commands: Commands,
+    mut ui_images: Query<&mut UiImage, With<UiNode>>,
+    mut ui_text: Query<&mut Text, With<UiNode>>,
+    fade_from_black: Option<ResMut<FadeFromBlack>>,
+    mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
+    time: Res<Time>,
+    mut writer: EventWriter<FinishedFadeFromBlack>,
+) {
+    if let Some(mut fade) = fade_from_black {
+        fade.timer_per_step.tick(time.delta());
+        if fade.timer_per_step.finished() {
+            fade.steps = fade.steps.saturating_sub(1);
+
+            for mut image in ui_images.iter_mut() {
+                let a = image.color.alpha();
+                image.color.set_alpha(a + 1.0 / fade.total_steps as f32);
+            }
+
+            for mut text in ui_text.iter_mut() {
+                for section in text.sections.iter_mut() {
+                    let color = &mut section.style.color;
+                    let a = color.alpha();
+                    color.set_alpha(a + 1.0 / fade.total_steps as f32);
+                }
+            }
+
+            let mut sprite = sprite.single_mut();
+            let a = sprite.color.alpha();
+            sprite.color.set_alpha(a - 1.0 / fade.total_steps as f32);
+
+            if fade.steps == 0 {
+                commands.remove_resource::<FadeFromBlack>();
+                writer.send(FinishedFadeFromBlack);
+                return;
+            }
+        }
     }
 }
 
@@ -53,7 +242,52 @@ struct HeartUi;
 pub const HEART_SCALE: f32 = 16.;
 pub const FONT_PATH: &'static str = "ui/alagard.ttf";
 
-fn setup(mut commands: Commands, server: Res<AssetServer>) {
+#[derive(Component)]
+struct UiNode;
+
+#[derive(Component)]
+struct FadeToBlackSprite;
+
+#[derive(Component)]
+struct NextDayUi;
+
+fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWriter<EndDay>) {
+    writer.send(EndDay);
+
+    commands.spawn((
+        SpriteBundle {
+            sprite: Sprite {
+                color: Color::srgba(0.0, 0.0, 0.0, 0.0),
+                custom_size: Some(Vec2::new(1000.0, 1000.0)),
+                ..default()
+            },
+            transform: Transform::from_xyz(0.0, 0.0, 999.0),
+            ..default()
+        },
+        FadeToBlackSprite,
+    ));
+
+    commands
+        .spawn((
+            TextBundle::from_section(
+                "Day 1",
+                TextStyle {
+                    font: server.load(FONT_PATH),
+                    font_size: 128.0,
+                    ..default()
+                },
+            )
+            .with_text_justify(JustifyText::Center)
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Percent(50.),
+                left: Val::Percent(41.),
+                ..default()
+            }),
+            NextDayUi,
+        ))
+        .insert(Visibility::Hidden);
+
     commands
         .ui_builder(UiRoot)
         .column(|column| {
@@ -88,7 +322,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
         .column(|column| {
             column
                 .row(|row| {
-                    row.spawn((ButtonBundle::default(), Decision::Yes))
+                    row.spawn((ButtonBundle::default(), DecisionType::Yes))
                         .entity_commands()
                         .with_children(|parent| {
                             parent.spawn(TextBundle::from_section(
@@ -101,7 +335,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
                             ));
                         });
 
-                    row.spawn((ButtonBundle::default(), Decision::No))
+                    row.spawn((ButtonBundle::default(), DecisionType::No))
                         .entity_commands()
                         .with_children(|parent| {
                             parent.spawn(TextBundle::from_section(
@@ -143,6 +377,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
             ..Default::default()
         }),
         CharacterUi::Request,
+        UiNode,
     ));
 
     // commands
@@ -193,6 +428,7 @@ fn setup_background(
             stretch_value: 1.,
         },
         PIXEL_PERFECT_LAYER,
+        UiNode,
         AudioBundle {
             source: server.load("audio/wind.mp3"),
             settings: PlaybackSettings {
@@ -210,6 +446,7 @@ fn setup_background(
             ..Default::default()
         },
         BackgroundTown,
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -227,6 +464,7 @@ fn setup_background(
             index: 0,
         },
         Crowd::Three(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -241,6 +479,7 @@ fn setup_background(
             index: 0,
         },
         Crowd::Two(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -255,6 +494,7 @@ fn setup_background(
             index: 0,
         },
         Crowd::One(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -324,38 +564,6 @@ fn setup_ui(
     server: Res<AssetServer>,
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
-    let window = &mut primary_window.single_mut();
-    window.cursor.visible = false;
-
-    commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                order: 2,
-                clear_color: ClearColorConfig::None,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-        RenderLayers::layer(2),
-    ));
-
-    commands.spawn((
-        ImageBundle {
-            image: UiImage::new(server.load("ui/cursor.png")),
-            transform: Transform::from_scale(Vec3::splat(8.)),
-            z_index: ZIndex::Global(100),
-            style: Style {
-                // max_size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                // align_items: AlignItems::Center,
-                // justify_content: JustifyContent::SpaceAround,
-                ..default()
-            },
-            calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
-            ..Default::default()
-        },
-        Cursor,
-    ));
-
     commands.spawn((
         SpriteBundle {
             texture: server.load("ui/ui.png"),
@@ -363,6 +571,7 @@ fn setup_ui(
             // .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
             ..Default::default()
         },
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -373,6 +582,7 @@ fn setup_ui(
             ..Default::default()
         },
         Mask::Happy,
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -383,6 +593,7 @@ fn setup_ui(
             ..Default::default()
         },
         Mask::Neutral,
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -393,28 +604,184 @@ fn setup_ui(
             ..Default::default()
         },
         Mask::Sad,
+        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
     commands.insert_resource(ActiveMask(Mask::Happy));
 }
 
+fn setup_cursor(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let window = &mut primary_window.single_mut();
+    // window.cursor.visible = false;
+
+    commands
+        .ui_builder(UiRoot)
+        .column(|column| {
+            column.row(|row| {
+                row.spawn((
+                    UiNode,
+                    ImageBundle {
+                        image: UiImage::new(server.load("ui/cursor.png")),
+                        transform: Transform::from_scale(Vec3::splat(8.)),
+                        z_index: ZIndex::Global(100),
+                        style: Style {
+                            // max_size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                            // align_items: AlignItems::Center,
+                            // justify_content: JustifyContent::SpaceAround,
+                            ..default()
+                        },
+                        calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
+                        ..Default::default()
+                    },
+                    Cursor,
+                ));
+                row.spawn((
+                    UiNode,
+                    InsightToolTip,
+                    TextBundle::from_section(
+                        "Insight",
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+            });
+        })
+        .style()
+        .justify_content(JustifyContent::End);
+}
+
 #[derive(Component)]
 pub struct Cursor;
 
-fn update_cursor(windows: Query<&Window>, mut cursor: Query<&mut Style, With<Cursor>>) {
-    let window = windows.single();
-    let mut style = cursor.single_mut();
+#[derive(Component)]
+pub struct InsightToolTip;
 
-    if let Some(world_position) = window.cursor_position() {
-        style.left = Val::Px(world_position.x - 120.);
-        style.top = Val::Px(world_position.y - 100.);
-        // style.
-        // transform.translation.x = world_position.x - 960.;
-        // transform.translation.y = -(world_position.y - 540.);
-        // transform.translation.z = 999.;
+#[derive(Component)]
+pub struct CursorCanDecide;
+
+#[derive(Resource)]
+struct Insight {
+    grace: Timer,
+    is_held: bool,
+    character: Option<Handle<Character>>,
+}
+
+impl Default for Insight {
+    fn default() -> Self {
+        Self {
+            grace: Timer::from_seconds(INSIGHT_CHARGE_TIME, TimerMode::Repeating),
+            is_held: false,
+            character: None,
+        }
     }
 }
+
+#[derive(Event)]
+struct AquireInsight;
+
+fn update_cursor(
+    windows: Query<&Window>,
+    mut cursor: Query<(Entity, &mut Style), (With<Cursor>, Without<InsightToolTip>)>,
+    mut tool_tip: Query<(Entity, &mut Style), (With<InsightToolTip>, Without<Cursor>)>,
+    mut reader: EventReader<MouseButtonInput>,
+    mut writer: EventWriter<AquireInsight>,
+    mut insight: ResMut<Insight>,
+    mut commands: Commands,
+    time: Res<Time>,
+) {
+    let window = windows.single();
+    let (entity, mut style) = cursor.single_mut();
+    let (tool_tip_entity, mut tool_tip_style) = tool_tip.single_mut();
+
+    if let Some(world_position) = window.cursor_position() {
+        let left = world_position.x - 125.;
+        let top = world_position.y - 1080. + 40.;
+        style.left = Val::Px(left);
+        style.top = Val::Px(top);
+
+        tool_tip_style.left = Val::Px(left);
+        tool_tip_style.top = Val::Px(top);
+
+        if top > 0.0 && top < 600. {
+            commands.entity(entity).insert(CursorCanDecide);
+        } else {
+            commands.entity(entity).remove::<CursorCanDecide>();
+        }
+    }
+
+    insight.grace.tick(time.delta());
+
+    if insight.grace.finished() && insight.is_held {
+        writer.send(AquireInsight);
+    }
+
+    for input in reader.read() {
+        if input.button == MouseButton::Right {
+            match input.state {
+                ButtonState::Pressed => {
+                    insight.is_held = true;
+                }
+                ButtonState::Released => {
+                    insight.is_held = false;
+                }
+            }
+
+            insight
+                .grace
+                .set_duration(Duration::from_secs_f32(INSIGHT_CHARGE_TIME));
+        }
+    }
+}
+
+fn aquire_insight(
+    mut reader: EventReader<AquireInsight>,
+    mut state: ResMut<KingdomState>,
+    selected_character: Option<Res<SelectedCharacter>>,
+    mut insight: ResMut<Insight>,
+) {
+    for _ in reader.read() {
+        let Some(selected_character) = &selected_character else {
+            error!("tried to aquired insight without a selected character");
+            return;
+        };
+
+        if insight.character.as_ref() == Some(&selected_character.0) {
+            info!("insight already aquired, returning");
+            return;
+        }
+
+        insight.character = Some(selected_character.0.clone());
+
+        info!("aquiring insight");
+        state.heart_size -= 10.;
+    }
+}
+
+fn display_insight(
+    insight: Res<Insight>,
+    characters: Res<Assets<Character>>,
+    selected_character: Option<Res<SelectedCharacter>>,
+) {
+    if let Some(character) = &insight.character {
+        if let Some(selected_character) = selected_character {
+            if selected_character.0 == *character {
+                if let Some(character) = characters.get(character) {
+                    println!("displaying insight: {:?}", character.name);
+                }
+            }
+        }
+    }
+}
+
+fn display_insight_tooltip(cursor: Query<&Style, With<CursorCanDecide>>) {}
 
 #[derive(Component, PartialEq, Eq)]
 pub enum Mask {
@@ -487,6 +854,7 @@ fn setup_heart_ui(
         animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         HeartUi,
+        UiNode,
         Animator::new(pulse),
         PIXEL_PERFECT_LAYER,
     ));
@@ -601,8 +969,23 @@ const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
-#[derive(Debug, Event, Clone, Copy, PartialEq, Eq, Reflect)]
+#[derive(Debug, Event, Clone, PartialEq, Eq, Reflect)]
 pub enum Decision {
+    Yes(Handle<Character>),
+    No(Handle<Character>),
+}
+
+impl From<&Decision> for DecisionType {
+    fn from(value: &Decision) -> Self {
+        match *value {
+            Decision::Yes(_) => DecisionType::Yes,
+            Decision::No(_) => DecisionType::No,
+        }
+    }
+}
+
+#[derive(Debug, Component, Clone, Copy, Reflect)]
+pub enum DecisionType {
     Yes,
     No,
 }
@@ -630,13 +1013,14 @@ fn selection_ui(
     mut commands: Commands,
     server: Res<AssetServer>,
     mut interaction_query: Query<
-        (&Interaction, &mut BackgroundColor, &Decision),
+        (&Interaction, &mut BackgroundColor, &DecisionType),
         (With<Button>, Changed<Interaction>),
     >,
     // mut text_query: Query<&mut Text>,
     mut writer: EventWriter<Decision>,
     show: Option<Res<ShowSelectionUi>>,
     mut root_ui: Query<&mut Visibility, With<DecisionUi>>,
+    selected_character: Option<Res<SelectedCharacter>>,
 ) {
     if show.is_some() {
         let mut vis = root_ui.single_mut();
@@ -650,17 +1034,33 @@ fn selection_ui(
                     *color = NORMAL_BUTTON.into();
                     // border_color.0 = RED.into();
 
-                    let decision_variation = if *decision == Decision::No { -0.25 } else { 0. };
+                    // let decision_variation = if *decision == Decision::No(_) {
+                    //     -0.25
+                    // } else {
+                    //     0.
+                    // };
                     commands.spawn(AudioBundle {
                         source: server.load(
                             "audio/retro/GameSFX/Weapon/reload/Retro Weapon Reload Best A 03.wav",
                         ),
                         settings: PlaybackSettings::default()
                             .with_volume(Volume::new(0.5))
-                            .with_speed(1.8 - decision_variation),
+                            .with_speed(1.8 - 0.),
                     });
 
-                    writer.send(*decision);
+                    let Some(selected_character) = &selected_character else {
+                        error!("made decision but there is no selected character");
+                        return;
+                    };
+
+                    match decision {
+                        DecisionType::Yes => {
+                            writer.send(Decision::Yes(selected_character.0.clone()));
+                        }
+                        DecisionType::No => {
+                            writer.send(Decision::No(selected_character.0.clone()));
+                        }
+                    }
                 }
                 Interaction::Hovered => {
                     // text.sections[0].value = "Hover".to_string();

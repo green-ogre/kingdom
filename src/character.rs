@@ -1,3 +1,4 @@
+use crate::ui::ActiveMask;
 use crate::GameState;
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
 use bevy::{
@@ -17,13 +18,13 @@ impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(YamlAssetPlugin::<Character>::new(&["character.yaml"]))
             .insert_resource(TypeWriter::default())
-            .insert_resource(SelectedCharacter::default())
+            // .insert_resource(SelectedCharacter::default())
             .add_systems(
                 OnEnter(GameState::Main),
                 (
                     load_characters,
                     crate::state::initialize_filters,
-                    choose_new_character,
+                    // choose_new_character,
                 )
                     .chain(),
             )
@@ -70,7 +71,6 @@ fn choose_new_character(
     mut commands: Commands,
     server: Res<AssetServer>,
     mut characters: ResMut<Characters>,
-    mut selected_character: ResMut<SelectedCharacter>,
     mut character_assets: ResMut<Assets<Character>>,
     mut type_writer: ResMut<TypeWriter>,
     prev_sel_sprite: Query<Entity, With<SelectedCharacterSprite>>,
@@ -106,7 +106,7 @@ fn choose_new_character(
 
     let character = character_assets.get_mut(&new_handle).unwrap();
     character.set_used(state.day, request_index);
-    selected_character.0 = new_handle;
+    commands.insert_resource(SelectedCharacter(new_handle));
 }
 
 fn load_character_sprite(
@@ -154,13 +154,19 @@ pub enum CharacterUi {
 
 fn character_ui(
     mut commands: Commands,
-    selected_character: Res<SelectedCharacter>,
+    selected_character: Option<Res<SelectedCharacter>>,
     characters: Res<Assets<Character>>,
     mut character_ui: Query<(&mut Text, &CharacterUi)>,
     mut type_writer: ResMut<TypeWriter>,
     mut reader: EventReader<KeyboardInput>,
     time: Res<Time>,
 ) {
+    let Some(selected_character) = selected_character else {
+        commands.remove_resource::<ActiveMask>();
+
+        return;
+    };
+
     type_writer.increment(&time);
     type_writer.try_play_sound(&mut commands);
 
