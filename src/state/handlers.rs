@@ -13,7 +13,10 @@ impl Plugin for HandlerPlugin {
 
 /// Generate a handler map.
 macro_rules! handler_map {
-    ($name:ident, $($funcs:ident),*) => {
+    (
+        $(#[$($attrss:tt)*])*
+        $name:ident, $($funcs:ident),*
+    ) => {
         #[derive(Debug, Resource)]
         pub struct $name(pub(super) HashMap<&'static str, SystemId>);
 
@@ -37,7 +40,14 @@ macro_rules! handler_map {
 
 // TODO: validate that all assets use existing handler names
 // at startup in debug mode.
-handler_map! {ResponseHandlers, test, test2}
+handler_map! {
+    /// Response handlers.
+    ///
+    /// These can be used within requests to produce arbitrary side effects after a response.
+    ResponseHandlers,
+    test,
+    test2
+}
 
 fn test(time: Res<Time>) {
     println!("Hello, world! {}", time.delta_seconds());
@@ -47,7 +57,13 @@ fn test2(time: Res<Time>) {
     println!("Hello, world2! {}", time.delta_seconds());
 }
 
-handler_map! {Filters, prince_one}
+handler_map! {
+    /// Request filters.
+    ///
+    /// These can be used in requests to arbitrarily enable or disabled them.
+    Filters,
+    prince_one
+}
 
 impl Filters {
     pub fn run<'a>(
