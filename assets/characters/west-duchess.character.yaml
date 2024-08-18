@@ -1,6 +1,6 @@
 name: Duchess of the West
 class: Lord
-sprite_path: "characters/images/prince.png"
+sprite_path: "characters/west_duchess"
 requests:
   - - text: |
         My Lord King, I expire under the strict legal charters imposed upon Your humble subjects. I would ask that You kingdom relax these charters so that I may deal with my serfs as I will.

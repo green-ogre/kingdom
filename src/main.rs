@@ -6,13 +6,16 @@ use bevy::{
 use bevy_asset_loader::loading_state::{
     config::ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
+use bevy_inspector_egui::{quick::WorldInspectorPlugin, DefaultInspectorConfigPlugin};
 use character::{CharacterAssets, CharacterPlugin};
+use menu::MainMenuPlugin;
 use pixel_perfect::PixelPerfectPlugin;
 use state::{KingdomState, StatePlugin, StateUpdate};
 use ui::{set_world_to_black, UiPlugin};
 
 mod animated_sprites;
 mod character;
+mod menu;
 mod pixel_perfect;
 mod state;
 mod type_writer;
@@ -31,11 +34,12 @@ fn main() {
                     ..Default::default()
                 })
                 .set(ImagePlugin::default_nearest()),
-            // WorldInspectorPlugin::new(),
             CharacterPlugin,
             StatePlugin,
             UiPlugin,
             PixelPerfectPlugin,
+            WorldInspectorPlugin::new(),
+            MainMenuPlugin,
         ))
         .init_state::<GameState>()
         .add_loading_state(
@@ -43,23 +47,19 @@ fn main() {
                 .continue_to_state(GameState::Main)
                 .load_collection::<CharacterAssets>(),
         )
+        .add_systems(Startup, menu::setup_cursor)
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(OnEnter(GameState::Main), setup)
         .add_systems(Update, (close_on_escape, animated_sprites::animate_sprites))
         .run();
 }
 
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct WinSet;
-
-#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct LooseSet;
-
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
 enum GameState {
     #[default]
     AssetLoading,
     Main,
+    MainMenu,
     Loose,
     Win,
 }

@@ -44,10 +44,7 @@ struct InGameCamera;
 
 /// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYERS`]) to the screen.
 #[derive(Component)]
-struct OuterCamera;
-
-#[derive(Component)]
-struct Rotate;
+pub struct OuterCamera;
 
 fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let canvas_size = Extent3d {
@@ -97,6 +94,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         SpriteBundle {
             texture: image_handle,
+            transform: Transform::from_xyz(0., 0., -999.),
             ..default()
         },
         Canvas,

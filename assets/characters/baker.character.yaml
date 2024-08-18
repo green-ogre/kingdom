@@ -1,6 +1,6 @@
 name: Baker
 class: Craftsman
-sprite_path: "characters/images/prince.png"
+sprite_path: "characters/baker"
 requests:
   - - text: |
         Would your majesty consider releasing the royal grain stores early this year? We in the west were not so fortunate last harvest. I doubt our stores will last, and we can't afford the spring prices.

@@ -36,19 +36,12 @@ impl Plugin for UiPlugin {
                     setup_heart_ui,
                     setup_courtroom,
                     setup_background,
-                    setup_cursor,
                     // set_world_to_black,
                 ),
             )
             .add_systems(
                 Update,
-                (
-                    heart_ui,
-                    mask_ui,
-                    update_cursor,
-                    display_insight_tooltip,
-                    display_insight,
-                )
+                (heart_ui, mask_ui, display_insight_tooltip, display_insight)
                     .run_if(in_state(GameState::Main)),
             )
             .add_systems(
@@ -642,53 +635,6 @@ fn setup_ui(
     ));
 }
 
-fn setup_cursor(
-    mut commands: Commands,
-    server: Res<AssetServer>,
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
-) {
-    let window = &mut primary_window.single_mut();
-    // window.cursor.visible = false;
-
-    commands
-        .ui_builder(UiRoot)
-        .column(|column| {
-            column.row(|row| {
-                row.spawn((
-                    UiNode,
-                    ImageBundle {
-                        image: UiImage::new(server.load("ui/cursor.png")),
-                        transform: Transform::from_scale(Vec3::splat(8.)),
-                        z_index: ZIndex::Global(100),
-                        style: Style {
-                            // max_size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                            // align_items: AlignItems::Center,
-                            // justify_content: JustifyContent::SpaceAround,
-                            ..default()
-                        },
-                        calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
-                        ..Default::default()
-                    },
-                    Cursor,
-                ));
-                row.spawn((
-                    UiNode,
-                    InsightToolTip,
-                    TextBundle::from_section(
-                        "Insight",
-                        TextStyle {
-                            font_size: 30.0,
-                            font: server.load(FONT_PATH),
-                            ..Default::default()
-                        },
-                    ),
-                ));
-            });
-        })
-        .style()
-        .justify_content(JustifyContent::End);
-}
-
 #[derive(Component)]
 pub struct Cursor;
 
@@ -699,7 +645,7 @@ pub struct InsightToolTip;
 pub struct CursorCanDecide;
 
 #[derive(Resource)]
-struct Insight {
+pub struct Insight {
     grace: Timer,
     is_held: bool,
     character: Option<Handle<Character>>,
@@ -716,12 +662,15 @@ impl Default for Insight {
 }
 
 #[derive(Event)]
-struct AquireInsight;
+pub struct AquireInsight;
 
-fn update_cursor(
+pub fn update_cursor(
     windows: Query<&Window>,
     mut cursor: Query<(Entity, &mut Style), (With<Cursor>, Without<InsightToolTip>)>,
-    mut tool_tip: Query<(Entity, &mut Style), (With<InsightToolTip>, Without<Cursor>)>,
+    mut tool_tip: Query<
+        (Entity, &mut Style, &mut Visibility),
+        (With<InsightToolTip>, Without<Cursor>),
+    >,
     mut reader: EventReader<MouseButtonInput>,
     mut writer: EventWriter<AquireInsight>,
     mut insight: ResMut<Insight>,
@@ -729,22 +678,36 @@ fn update_cursor(
     time: Res<Time>,
 ) {
     let window = windows.single();
-    let (entity, mut style) = cursor.single_mut();
-    let (tool_tip_entity, mut tool_tip_style) = tool_tip.single_mut();
+    let Ok((entity, mut style)) = cursor.get_single_mut() else {
+        return;
+    };
+    let (tool_tip_entity, mut tool_tip_style, mut visibility) = tool_tip.single_mut();
 
     if let Some(world_position) = window.cursor_position() {
+        // let left = world_position.x - 125. + 30.;
+        // let top = world_position.y - 1080. + 56.;
+        //
+        // let left = world_position.x / window.size().x + world_position.x / 2. * window.size().x;
+        // let top = world_position.y / window.size().y;
+
+        // println!("{world_position:?}");
+
         let left = world_position.x - 125.;
         let top = world_position.y - 1080. + 40.;
+
         style.left = Val::Px(left);
         style.top = Val::Px(top);
 
         tool_tip_style.left = Val::Px(left);
         tool_tip_style.top = Val::Px(top);
 
-        if top > 0.0 && top < 600. {
+        // println!("{top:?}");
+        if top < -350. {
             commands.entity(entity).insert(CursorCanDecide);
+            *visibility = Visibility::Visible;
         } else {
             commands.entity(entity).remove::<CursorCanDecide>();
+            *visibility = Visibility::Hidden;
         }
     }
 

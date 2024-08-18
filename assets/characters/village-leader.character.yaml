@@ -1,6 +1,6 @@
 name: Village leader
 class: Peasant
-sprite_path: "characters/blacksmith"
+sprite_path: "characters/village_leader"
 requests:
   - - text: |
         My Lord King, Your humble servant requests but a single horse. Our village suffered gravely this winter. We lost all our field animals.

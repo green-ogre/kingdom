@@ -84,14 +84,14 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
     characters.extend([
         // ("jeremy", character_assets.jeremy.clone()),
         // ("merideth", character_assets.merideth.clone()),
-        // ("prince", character_assets.prince.clone()),
+        ("prince", character_assets.prince.clone()),
         // ("princess", character_assets.princess.clone()),
-        ("blacksmith", character_assets.blacksmith.clone()),
+        // ("blacksmith", character_assets.blacksmith.clone()),
         // ("tax-man", character_assets.tax_man.clone()),
-        ("village-leader", character_assets.village_leader.clone()),
-        ("baker", character_assets.baker.clone()),
-        ("west-duchess", character_assets.west_duchess.clone()),
-        ("nun", character_assets.nun.clone()),
+        // ("village-leader", character_assets.village_leader.clone()),
+        // ("baker", character_assets.baker.clone()),
+        // ("west-duchess", character_assets.west_duchess.clone()),
+        // ("nun", character_assets.nun.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
@@ -343,7 +343,7 @@ fn character_ui(
                                             start: Vec3::ZERO.with_z(transform.translation.z),
                                             end: Vec3::ZERO
                                                 .with_z(transform.translation.z)
-                                                .with_y(2.),
+                                                .with_y(1.5),
                                         },
                                     )
                                     .with_repeat_count(RepeatCount::Infinite)
