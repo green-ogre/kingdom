@@ -1,10 +1,12 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
 use crate::character::CharacterUi;
-use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
+use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH};
 use crate::state::{KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
 use bevy::audio::PlaybackMode;
 use bevy::render::view::RenderLayers;
+use bevy::ui::ContentSize;
+use bevy::window::PrimaryWindow;
 use bevy::{audio::Volume, prelude::*};
 use bevy_tweening::*;
 use lens::{TransformRotateZLens, TransformScaleLens};
@@ -31,7 +33,7 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 Update,
-                (heart_ui, mask_ui).run_if(in_state(GameState::Main)),
+                (heart_ui, mask_ui, update_cursor).run_if(in_state(GameState::Main)),
             )
             .add_systems(
                 PreUpdate,
@@ -317,7 +319,43 @@ fn animate_crowd(mut crowds: Query<(&mut Crowd, &mut TextureAtlas)>, time: Res<T
     }
 }
 
-fn setup_ui(mut commands: Commands, server: Res<AssetServer>) {
+fn setup_ui(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+) {
+    let window = &mut primary_window.single_mut();
+    window.cursor.visible = false;
+
+    commands.spawn((
+        Camera2dBundle {
+            camera: Camera {
+                order: 2,
+                clear_color: ClearColorConfig::None,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        RenderLayers::layer(2),
+    ));
+
+    commands.spawn((
+        ImageBundle {
+            image: UiImage::new(server.load("ui/cursor.png")),
+            transform: Transform::from_scale(Vec3::splat(8.)),
+            z_index: ZIndex::Global(100),
+            style: Style {
+                // max_size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                // align_items: AlignItems::Center,
+                // justify_content: JustifyContent::SpaceAround,
+                ..default()
+            },
+            calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
+            ..Default::default()
+        },
+        Cursor,
+    ));
+
     commands.spawn((
         SpriteBundle {
             texture: server.load("ui/ui.png"),
@@ -359,6 +397,23 @@ fn setup_ui(mut commands: Commands, server: Res<AssetServer>) {
     ));
 
     commands.insert_resource(ActiveMask(Mask::Happy));
+}
+
+#[derive(Component)]
+pub struct Cursor;
+
+fn update_cursor(windows: Query<&Window>, mut cursor: Query<&mut Style, With<Cursor>>) {
+    let window = windows.single();
+    let mut style = cursor.single_mut();
+
+    if let Some(world_position) = window.cursor_position() {
+        style.left = Val::Px(world_position.x - 120.);
+        style.top = Val::Px(world_position.y - 100.);
+        // style.
+        // transform.translation.x = world_position.x - 960.;
+        // transform.translation.y = -(world_position.y - 540.);
+        // transform.translation.z = 999.;
+    }
 }
 
 #[derive(Component, PartialEq, Eq)]
