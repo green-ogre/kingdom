@@ -29,7 +29,10 @@ impl Plugin for UiPlugin {
                     setup_background,
                 ),
             )
-            .add_systems(Update, (heart_ui).run_if(in_state(GameState::Main)))
+            .add_systems(
+                Update,
+                (heart_ui, mask_ui).run_if(in_state(GameState::Main)),
+            )
             .add_systems(
                 PreUpdate,
                 should_show_selection_ui.run_if(in_state(GameState::Main)),
@@ -324,6 +327,67 @@ fn setup_ui(mut commands: Commands, server: Res<AssetServer>) {
         },
         PIXEL_PERFECT_LAYER,
     ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("ui/happy_mask.png"),
+            transform: Transform::from_xyz(0., 0., 20.),
+            ..Default::default()
+        },
+        Mask::Happy,
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("ui/neutral_mask.png"),
+            transform: Transform::from_xyz(0., 0., 20.),
+            ..Default::default()
+        },
+        Mask::Neutral,
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("ui/sad_mask.png"),
+            transform: Transform::from_xyz(0., 0., 20.),
+            ..Default::default()
+        },
+        Mask::Sad,
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.insert_resource(ActiveMask(Mask::Happy));
+}
+
+#[derive(Component, PartialEq, Eq)]
+pub enum Mask {
+    Happy,
+    Neutral,
+    Sad,
+}
+
+#[derive(Resource)]
+pub struct ActiveMask(pub Mask);
+
+fn mask_ui(
+    active_mask: Option<Res<ActiveMask>>,
+    mut sprites: Query<(&mut Visibility, &Mask), With<Sprite>>,
+) {
+    if let Some(active_mask) = active_mask {
+        for (mut vis, mask) in sprites.iter_mut() {
+            if *mask == active_mask.0 {
+                *vis = Visibility::Visible;
+            } else {
+                *vis = Visibility::Hidden;
+            }
+        }
+    } else {
+        for (mut vis, _mask) in sprites.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+    }
 }
 
 fn setup_heart_ui(
@@ -335,11 +399,29 @@ fn setup_heart_ui(
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
     let animation_indices = AnimationIndices { first: 0, last: 5 };
+    let transform = Transform::from_xyz(-90., -45., 100.);
+
+    let pulse = Tween::new(
+        // Use a quadratic easing on both endpoints.
+        EaseFunction::QuadraticInOut,
+        // Animation time (one way only; for ping-pong it takes 2 seconds
+        // to come back to start).
+        Duration::from_secs_f32(1.0),
+        // The lens gives the Animator access to the Transform component,
+        // to animate it. It also contains the start and end values associated
+        // with the animation ratios 0. and 1.
+        TransformScaleLens {
+            start: transform.scale,
+            end: transform.scale * Vec3::new(1.1, 1.05, 1.),
+        },
+    )
+    .with_repeat_count(RepeatCount::Infinite)
+    .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
 
     commands.spawn((
         SpriteBundle {
             texture,
-            transform: Transform::from_xyz(-90., -45., 100.),
+            transform,
             // .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
             ..Default::default()
         },
@@ -350,6 +432,7 @@ fn setup_heart_ui(
         animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         HeartUi,
+        Animator::new(pulse),
         PIXEL_PERFECT_LAYER,
     ));
 }
