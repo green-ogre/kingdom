@@ -30,12 +30,14 @@ impl Plugin for UiPlugin {
             .add_systems(
                 OnEnter(GameState::Main),
                 (
+                    startup,
                     setup,
                     setup_ui,
                     setup_heart_ui,
                     setup_courtroom,
                     setup_background,
                     setup_cursor,
+                    // set_world_to_black,
                 ),
             )
             .add_systems(
@@ -60,8 +62,11 @@ impl Plugin for UiPlugin {
             )
             .add_systems(FixedPreUpdate, (animate_clouds, animate_crowd))
             .add_systems(Update, selection_ui.run_if(in_state(GameState::Main)))
-            .add_systems(OnEnter(GameState::Win), win_ui)
-            .add_systems(OnEnter(GameState::Loose), loose_ui)
+            .add_systems(OnEnter(GameState::Win), (set_world_to_black, end_animation))
+            .add_systems(
+                OnEnter(GameState::Loose),
+                (set_world_to_black, end_animation).chain(),
+            )
             .add_event::<AquireInsight>()
             .add_event::<FinishedFadeFromBlack>()
             .add_event::<FinishedFadeToBlack>()
@@ -133,6 +138,27 @@ impl FadeToBlack {
             total_steps: steps,
             steps,
         }
+    }
+}
+
+pub fn set_world_to_black(
+    mut ui_images: Query<&mut UiImage, With<UiNode>>,
+    mut ui_text: Query<&mut Text, With<UiNode>>,
+    mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
+) {
+    for mut image in ui_images.iter_mut() {
+        image.color.set_alpha(0.);
+    }
+
+    for mut text in ui_text.iter_mut() {
+        for section in text.sections.iter_mut() {
+            let color = &mut section.style.color;
+            color.set_alpha(0.);
+        }
+    }
+
+    if let Ok(mut sprite) = sprite.get_single_mut() {
+        sprite.color.set_alpha(1.);
     }
 }
 
@@ -246,16 +272,16 @@ pub const HEART_SCALE: f32 = 16.;
 pub const FONT_PATH: &'static str = "ui/alagard.ttf";
 
 #[derive(Component)]
-struct UiNode;
+pub struct UiNode;
 
 #[derive(Component)]
-struct FadeToBlackSprite;
+pub struct FadeToBlackSprite;
 
 #[derive(Component)]
 struct NextDayUi;
 
-fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWriter<EndDay>) {
-    writer.send(EndDay);
+fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
+    // state.heart_size = 1.;
 
     commands.spawn((
         SpriteBundle {
@@ -264,11 +290,15 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWrit
                 custom_size: Some(Vec2::new(1000.0, 1000.0)),
                 ..default()
             },
-            transform: Transform::from_xyz(0.0, 0.0, 999.0),
+            transform: Transform::from_xyz(0.0, 0.0, 900.0),
             ..default()
         },
         FadeToBlackSprite,
     ));
+}
+
+fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWriter<EndDay>) {
+    // writer.send(EndDay);
 
     commands
         .spawn((
@@ -294,28 +324,28 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWrit
     commands
         .ui_builder(UiRoot)
         .column(|column| {
-            column.spawn((
-                TextBundle::from_section(
-                    "Heart: {}",
-                    TextStyle {
-                        font: server.load(FONT_PATH),
-                        font_size: 30.0,
-                        ..default()
-                    },
-                ),
-                HeartUi,
-            ));
-            column.spawn((
-                TextBundle::from_section(
-                    "Character: {}",
-                    TextStyle {
-                        font: server.load(FONT_PATH),
-                        font_size: 30.0,
-                        ..default()
-                    },
-                ),
-                CharacterUi::Name,
-            ));
+            // column.spawn((
+            //     TextBundle::from_section(
+            //         "Heart: {}",
+            //         TextStyle {
+            //             font: server.load(FONT_PATH),
+            //             font_size: 30.0,
+            //             ..default()
+            //         },
+            //     ),
+            //     HeartUi,
+            // ));
+            // column.spawn((
+            //     TextBundle::from_section(
+            //         "Character: {}",
+            //         TextStyle {
+            //             font: server.load(FONT_PATH),
+            //             font_size: 30.0,
+            //             ..default()
+            //         },
+            //     ),
+            //     CharacterUi::Name,
+            // ));
         })
         .style()
         .justify_content(JustifyContent::End);
@@ -610,8 +640,6 @@ fn setup_ui(
         UiNode,
         PIXEL_PERFECT_LAYER,
     ));
-
-    commands.insert_resource(ActiveMask(Mask::Happy));
 }
 
 fn setup_cursor(
@@ -747,11 +775,11 @@ fn update_cursor(
 fn aquire_insight(
     mut reader: EventReader<AquireInsight>,
     mut state: ResMut<KingdomState>,
-    selected_character: Option<Res<SelectedCharacter>>,
+    selected_character: Query<&SelectedCharacter>,
     mut insight: ResMut<Insight>,
 ) {
     for _ in reader.read() {
-        let Some(selected_character) = &selected_character else {
+        let Ok(selected_character) = &selected_character.get_single() else {
             error!("tried to aquired insight without a selected character");
             return;
         };
@@ -771,10 +799,10 @@ fn aquire_insight(
 fn display_insight(
     insight: Res<Insight>,
     characters: Res<Assets<Character>>,
-    selected_character: Option<Res<SelectedCharacter>>,
+    selected_character: Query<&SelectedCharacter>,
 ) {
     if let Some(character) = &insight.character {
-        if let Some(selected_character) = selected_character {
+        if let Ok(selected_character) = selected_character.get_single() {
             if selected_character.0 == *character {
                 if let Some(character) = characters.get(character) {
                     println!("displaying insight: {:?}", character.name);
@@ -996,19 +1024,24 @@ pub enum DecisionType {
 #[derive(Component)]
 struct DecisionUi;
 
-#[derive(Resource)]
+#[derive(Component)]
 pub struct ShowSelectionUi;
 
 fn should_show_selection_ui(
     mut commands: Commands,
     type_writer: Res<TypeWriter>,
-    show_selection: Option<Res<ShowSelectionUi>>,
+    // show_selection: Option<Res<ShowSelectionUi>>,
+    selected_player: Query<(Entity, Has<ShowSelectionUi>), With<SelectedCharacter>>,
 ) {
-    if type_writer.is_finished && show_selection.is_none() {
-        commands.insert_resource(ShowSelectionUi);
+    let Ok((entity, show_selection)) = selected_player.get_single() else {
+        return;
+    };
+
+    if type_writer.is_finished && !show_selection {
+        commands.entity(entity).insert(ShowSelectionUi);
         info!("character finished dialogue, displaying selection ui");
-    } else if show_selection.is_some() && !type_writer.is_finished {
-        commands.remove_resource::<ShowSelectionUi>();
+    } else if show_selection && !type_writer.is_finished {
+        commands.entity(entity).remove::<ShowSelectionUi>();
     }
 }
 
@@ -1021,69 +1054,175 @@ fn selection_ui(
     >,
     // mut text_query: Query<&mut Text>,
     mut writer: EventWriter<Decision>,
-    show: Option<Res<ShowSelectionUi>>,
+    // show: Option<Res<ShowSelectionUi>>,
     mut root_ui: Query<&mut Visibility, With<DecisionUi>>,
-    selected_character: Option<Res<SelectedCharacter>>,
+    selected_character: Query<&SelectedCharacter, With<ShowSelectionUi>>,
 ) {
-    if show.is_some() {
-        let mut vis = root_ui.single_mut();
-        *vis = Visibility::Visible;
+    let Ok(selected_character) = selected_character.get_single() else {
+        return;
+    };
 
-        for (interaction, mut color, decision) in &mut interaction_query {
-            match *interaction {
-                Interaction::Pressed => {
-                    // *color = PRESSED_BUTTON.into();
-                    // text.sections[0].value = "Press".to_string();
-                    *color = NORMAL_BUTTON.into();
-                    // border_color.0 = RED.into();
+    let mut vis = root_ui.single_mut();
+    *vis = Visibility::Visible;
 
-                    // let decision_variation = if *decision == Decision::No(_) {
-                    //     -0.25
-                    // } else {
-                    //     0.
-                    // };
-                    commands.spawn(AudioBundle {
-                        source: server.load(
-                            "audio/retro/GameSFX/Weapon/reload/Retro Weapon Reload Best A 03.wav",
-                        ),
-                        settings: PlaybackSettings::default()
-                            .with_volume(Volume::new(0.5))
-                            .with_speed(1.8 - 0.),
-                    });
+    for (interaction, mut color, decision) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                // *color = PRESSED_BUTTON.into();
+                // text.sections[0].value = "Press".to_string();
+                *color = NORMAL_BUTTON.into();
+                // border_color.0 = RED.into();
 
-                    let Some(selected_character) = &selected_character else {
-                        error!("made decision but there is no selected character");
-                        return;
-                    };
+                // let decision_variation = if *decision == Decision::No(_) {
+                //     -0.25
+                // } else {
+                //     0.
+                // };
+                commands.spawn(AudioBundle {
+                    source: server.load(
+                        "audio/retro/GameSFX/Weapon/reload/Retro Weapon Reload Best A 03.wav",
+                    ),
+                    settings: PlaybackSettings::default()
+                        .with_volume(Volume::new(0.5))
+                        .with_speed(1.8 - 0.),
+                });
 
-                    match decision {
-                        DecisionType::Yes => {
-                            writer.send(Decision::Yes(selected_character.0.clone()));
-                        }
-                        DecisionType::No => {
-                            writer.send(Decision::No(selected_character.0.clone()));
-                        }
+                match decision {
+                    DecisionType::Yes => {
+                        writer.send(Decision::Yes(selected_character.0.clone()));
+                    }
+                    DecisionType::No => {
+                        writer.send(Decision::No(selected_character.0.clone()));
                     }
                 }
-                Interaction::Hovered => {
-                    // text.sections[0].value = "Hover".to_string();
-                    *color = HOVERED_BUTTON.into();
-                    // border_color.0 = Color::WHITE;
-                }
-                Interaction::None => {
-                    // text.sections[0].value = "I concur.".to_string();
-                    *color = NORMAL_BUTTON.into();
-                    // border_color.0 = Color::BLACK;
-                }
+            }
+            Interaction::Hovered => {
+                // text.sections[0].value = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                // border_color.0 = Color::WHITE;
+            }
+            Interaction::None => {
+                // text.sections[0].value = "I concur.".to_string();
+                *color = NORMAL_BUTTON.into();
+                // border_color.0 = Color::BLACK;
             }
         }
-    } else {
-        let mut vis = root_ui.single_mut();
-        *vis = Visibility::Hidden;
     }
 }
 
-fn loose_ui(mut commands: Commands) {
+fn end_animation(
+    mut commands: Commands,
+    mut heart_sprite: Query<
+        (Entity, &mut Transform, &mut Visibility),
+        (With<HeartUi>, With<Sprite>),
+    >,
+    state: Res<KingdomState>,
+    audio: Query<Entity, With<Handle<AudioSource>>>,
+    server: Res<AssetServer>,
+) {
+    let Ok((entity, mut heart, mut visibility)) = heart_sprite.get_single_mut() else {
+        error!("could not retrieve heart sprite for loose animation");
+        return;
+    };
+
+    for sink in audio.iter() {
+        commands.entity(sink).despawn();
+    }
+
+    heart.translation = Vec3::new(0., 0., 999.);
+    *visibility = Visibility::Hidden;
+
+    if state.heart_size > 90. {
+        let grow = Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(2.),
+            TransformScaleLens {
+                start: heart.scale,
+                end: heart.scale * 2.,
+            },
+        );
+
+        let show_heart_with_rapid_beating = commands.register_one_shot_system(show_heart_fast);
+        let loose_ui = commands.register_one_shot_system(spawn_loose_ui);
+        commands.entity(entity).insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(2.25))
+                .with_completed_system(show_heart_with_rapid_beating)
+                .then(grow.with_completed_system(loose_ui)),
+        ));
+    } else if state.heart_size < 10. {
+        let shrink = Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(4.),
+            TransformScaleLens {
+                start: heart.scale,
+                end: heart.scale / 2.,
+            },
+        );
+
+        let show_heart_with_rapid_beating = commands.register_one_shot_system(show_heart_slow);
+        let loose_ui = commands.register_one_shot_system(spawn_loose_ui);
+        commands.entity(entity).insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(2.))
+                .with_completed_system(show_heart_with_rapid_beating)
+                .then(shrink.with_completed_system(loose_ui)),
+        ));
+    } else {
+        panic!("lost without meeting loose condition");
+    }
+}
+
+#[derive(Component)]
+struct HeartAudio;
+
+fn show_heart_fast(
+    mut heart_sprite: Query<&mut Visibility, (With<HeartUi>, With<Sprite>)>,
+    mut commands: Commands,
+    server: Res<AssetServer>,
+) {
+    let mut vis = heart_sprite.single_mut();
+    *vis = Visibility::Visible;
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/heartbeat.wav"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                speed: 1.3,
+                ..Default::default()
+            },
+        },
+        HeartAudio,
+    ));
+}
+
+fn show_heart_slow(
+    mut heart_sprite: Query<&mut Visibility, (With<HeartUi>, With<Sprite>)>,
+    mut commands: Commands,
+    server: Res<AssetServer>,
+) {
+    let mut vis = heart_sprite.single_mut();
+    *vis = Visibility::Visible;
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/heartbeat.wav"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                speed: 0.7,
+                ..Default::default()
+            },
+        },
+        HeartAudio,
+    ));
+}
+
+fn spawn_loose_ui(
+    mut commands: Commands,
+    mut heart_sprite: Query<&mut Visibility, (With<HeartUi>, With<Sprite>)>,
+    audio: Query<Entity, With<HeartAudio>>,
+) {
+    commands.entity(audio.single()).despawn();
+    *heart_sprite.single_mut() = Visibility::Hidden;
     commands
         .ui_builder(UiRoot)
         .column(|column| {
@@ -1099,7 +1238,13 @@ fn loose_ui(mut commands: Commands) {
         .justify_content(JustifyContent::Start);
 }
 
-fn win_ui(mut commands: Commands) {
+fn spawn_win_ui(
+    mut commands: Commands,
+    mut heart_sprite: Query<&mut Visibility, (With<HeartUi>, With<Sprite>)>,
+    audio: Query<Entity, With<HeartAudio>>,
+) {
+    commands.entity(audio.single()).despawn();
+    *heart_sprite.single_mut() = Visibility::Hidden;
     commands
         .ui_builder(UiRoot)
         .column(|column| {
