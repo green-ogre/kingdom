@@ -96,7 +96,7 @@ fn end_day_and_enter_next(
     for _ in finish_fade_to_black.read() {
         let (mut vis, mut text) = next_day_ui.single_mut();
         *vis = Visibility::Visible;
-        text.sections[0].value = format!("Day {}", state.day);
+        text.sections[0].value = state.day_name().to_string();
         day_number_ui.0 = Some(Timer::from_seconds(4., TimerMode::Once));
     }
 

@@ -85,6 +85,15 @@ impl KingdomState {
     pub fn prosperity(&self) -> f32 {
         self.happiness + self.wealth
     }
+
+    pub fn day_name(&self) -> &'static str {
+        match self.day {
+            0 => "Spring",
+            1 => "Fall",
+            2 => "Winter",
+            _ => "Spring",
+        }
+    }
 }
 
 #[derive(Component)]

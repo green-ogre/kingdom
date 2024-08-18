@@ -52,6 +52,12 @@ pub struct CharacterAssets {
     tax_man: Handle<Character>,
     #[asset(path = "characters/village-leader.character.yaml")]
     village_leader: Handle<Character>,
+    #[asset(path = "characters/baker.character.yaml")]
+    baker: Handle<Character>,
+    #[asset(path = "characters/west-duchess.character.yaml")]
+    west_duchess: Handle<Character>,
+    #[asset(path = "characters/nun.character.yaml")]
+    nun: Handle<Character>,
 }
 
 #[derive(Debug, Resource)]
@@ -72,6 +78,9 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
         ("blacksmith", character_assets.blacksmith.clone()),
         ("tax-man", character_assets.tax_man.clone()),
         ("village-leader", character_assets.village_leader.clone()),
+        ("baker", character_assets.baker.clone()),
+        ("west-duchess", character_assets.west_duchess.clone()),
+        ("nun", character_assets.nun.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);

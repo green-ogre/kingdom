@@ -1,0 +1,13 @@
+name: Duchess of the West
+class: Lord
+sprite_path: "characters/images/prince.png"
+requests:
+  - - text: |
+        My Lord King, I expire under the strict legal charters imposed upon Your humble subjects. I would ask that You kingdom relax these charters so that I may deal with my serfs as I will.
+      yes:
+        heart_size: -10
+        happiness: -5
+        last_word: Your Majesty's wisdom is a vast as our kingdom.
+      no:
+        heart_size: 10
+        last_word: I would never question Your Lordship.
