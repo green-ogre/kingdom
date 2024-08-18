@@ -164,8 +164,9 @@ fn fade_to_black(
             }
 
             let mut sprite = sprite.single_mut();
-            let a = sprite.color.alpha();
-            sprite.color.set_alpha(a + 1.0 / fade.total_steps as f32);
+            let alpha = fade.steps as f32 * (1.0 / fade.total_steps as f32);
+            let alpha = 1. - alpha.powi(2);
+            sprite.color.set_alpha(alpha);
 
             if fade.steps == 0 {
                 commands.remove_resource::<FadeToBlack>();
@@ -224,8 +225,10 @@ fn fade_from_black(
             }
 
             let mut sprite = sprite.single_mut();
-            let a = sprite.color.alpha();
-            sprite.color.set_alpha(a - 1.0 / fade.total_steps as f32);
+
+            let alpha = fade.steps as f32 * (1.0 / fade.total_steps as f32);
+            let alpha = 1. - (1. - alpha).powi(2);
+            sprite.color.set_alpha(alpha);
 
             if fade.steps == 0 {
                 commands.remove_resource::<FadeFromBlack>();
