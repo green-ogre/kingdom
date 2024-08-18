@@ -1,7 +1,4 @@
-use crate::{
-    type_writer::{self, TypeWriter},
-    GameState, KingdomState,
-};
+use crate::{state::KingdomState, type_writer::TypeWriter, GameState, StateUpdate};
 use bevy::{
     ecs::system::SystemId,
     input::{keyboard::KeyboardInput, ButtonState},
@@ -10,7 +7,8 @@ use bevy::{
 };
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_common_assets::yaml::YamlAssetPlugin;
-use rand::Rng;
+use foldhash::HashSet;
+use rand::{seq::IteratorRandom, thread_rng, Rng};
 use serde::Deserialize;
 
 pub struct CharacterPlugin;
@@ -38,6 +36,8 @@ pub struct CharacterAssets {
     jeremy: Handle<Character>,
     #[asset(path = "characters/merideth.character.yaml")]
     merideth: Handle<Character>,
+    #[asset(path = "characters/prince.character.yaml")]
+    prince: Handle<Character>,
 }
 
 #[derive(Debug, Resource)]
@@ -51,6 +51,7 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
     let mut characters = HashMap::default();
     characters.insert("jeremy", character_assets.jeremy.clone());
     characters.insert("merideth", character_assets.merideth.clone());
+    characters.insert("prince", character_assets.prince.clone());
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
     commands.insert_resource(Characters {
@@ -66,24 +67,35 @@ fn choose_new_character(
     mut selected_character: ResMut<SelectedCharacter>,
     mut character_assets: ResMut<Assets<Character>>,
     mut type_writer: ResMut<TypeWriter>,
+    state: Res<KingdomState>,
 ) {
-    let peasants = ["merideth", "jeremy"];
+    let mut rng = thread_rng();
+    let (new_character, new_handle, (request_index, request)) = characters
+        .table
+        .iter()
+        // filter out characters whose requests have all been heard
+        .filter_map(|(key, handle)| {
+            if *key == characters.current_key {
+                return None;
+            }
 
-    for peasant in peasants.iter() {
-        if *peasant != characters.current_key {
-            info!("selecting new character: {}", peasant);
-            characters.current_key = peasant;
-            selected_character.0 = characters.table.get(peasant).unwrap().clone();
+            let character = character_assets.get(handle).unwrap();
+            character
+                .sample_requests(state.day, &mut rng)
+                .map(|r| (*key, handle.clone(), r))
+        })
+        .choose(&mut thread_rng())
+        .expect("Do something when all options are exhausted");
 
-            let character = character_assets.get_mut(&selected_character.0).unwrap();
-            character.set_rand_request();
+    info!("selecting new character: {:?}", new_character);
+    characters.current_key = new_character;
 
-            let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
-            *type_writer = TypeWriter::new(character.request().text.clone(), 0.025, sfx);
+    let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
+    *type_writer = TypeWriter::new(request.text.clone(), 0.025, sfx);
 
-            break;
-        }
-    }
+    let character = character_assets.get_mut(&new_handle).unwrap();
+    character.set_used(state.day, request_index);
+    selected_character.0 = new_handle;
 }
 
 fn load_character_sprite(
@@ -180,17 +192,20 @@ fn show_character(
     }
 }
 
-#[derive(Debug, Default, Resource, Reflect)]
+#[derive(Debug, Default, Resource)]
 pub struct SelectedCharacter(pub Handle<Character>);
 
-#[derive(Debug, Deserialize, Asset, Component, Reflect)]
+#[derive(Debug, Deserialize, Asset, Component, TypePath)]
 pub struct Character {
     pub name: String,
     pub class: Class,
     pub sprite_path: String,
-    pub requests: Vec<Request>,
+    pub requests: Vec<Vec<Request>>,
+
     #[serde(skip)]
-    current_request: usize,
+    current_request: Option<usize>,
+    #[serde(skip)]
+    used_requests: HashMap<usize, HashSet<usize>>,
     #[serde(skip)]
     pub texture: Option<Handle<Image>>,
     #[serde(skip)]
@@ -198,23 +213,52 @@ pub struct Character {
 }
 
 impl Character {
-    pub fn request(&self) -> &Request {
-        &self.requests[self.current_request]
+    /// Sample the remaining requests. If at least on is available, it is returned
+    /// along with its index.
+    pub fn sample_requests(&self, day: usize, rng: &mut impl Rng) -> Option<(usize, &Request)> {
+        self.requests.get(day).and_then(|requests| {
+            if let Some(used) = self.used_requests.get(&day) {
+                requests
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| !used.contains(&i))
+                    .choose(rng)
+            } else {
+                requests.iter().enumerate().choose(rng)
+            }
+        })
     }
 
-    pub fn set_rand_request(&mut self) {
-        self.current_request = rand::thread_rng().gen_range(0..self.requests.len());
+    /// Set a request previously sampled with `sample_requests` as the current used request.
+    pub fn set_used(&mut self, day: usize, request: usize) {
+        self.current_request = Some(request);
+        let used = self.used_requests.entry(day).or_default();
+        used.insert(request);
+    }
+
+    /// Get the current request if any.
+    pub fn request(&self, day: usize) -> Option<&Request> {
+        self.current_request
+            .and_then(|index| self.requests.get(day).map(|r| &r[index]))
+    }
+
+    /// Clear the current request selection. This should be called once at the start of every day.
+    pub fn clear_request(&mut self) {
+        self.current_request = None;
     }
 }
 
 #[derive(Debug, Deserialize, Asset, Component, Reflect)]
 pub enum Class {
     Peasant,
+    Royal,
 }
 
 #[derive(Debug, Deserialize, Asset, Component, Reflect, Clone)]
 pub struct Request {
     pub text: String,
-    pub yes: KingdomState,
-    pub no: KingdomState,
+    pub yes: StateUpdate,
+    pub no: StateUpdate,
+    #[serde(default)]
+    pub response_handlers: Vec<String>,
 }

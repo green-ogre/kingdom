@@ -1,0 +1,20 @@
+name: Prince
+class: Royal
+sprite_path: "characters/prince.png"
+requests:
+  - - text: |
+        some nice text
+      yes:
+        heart_size: 10
+        happiness: 10
+        wealth: -10
+      no:
+        heart_size: -10
+    - text: |
+        another one
+      yes:
+        heart_size: 10
+        happiness: 10
+        wealth: -10
+      no:
+        heart_size: -10

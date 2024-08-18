@@ -1,11 +1,12 @@
-use bevy::prelude::*;
-use serde::Deserialize;
-use sickle_ui::ui_commands::UpdateStatesExt;
-
 use crate::{
     character::{Character, Characters, Request, SelectedCharacter},
     Decision, GameState,
 };
+use bevy::prelude::*;
+use serde::Deserialize;
+use sickle_ui::ui_commands::UpdateStatesExt;
+
+mod handlers;
 
 pub struct StatePlugin;
 
@@ -13,37 +14,65 @@ impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(KingdomState {
             heart_size: 50.,
-            money: 100.,
+            wealth: 100.,
             ..Default::default()
         })
         .add_event::<Decision>()
         .add_event::<NewHeartSize>()
+        .add_systems(Startup, handlers::ResponseHandlers::insert)
         .add_systems(
             PostUpdate,
+            // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
+            // this one so one-shot systems have a chance to actually be applied.
             (state_ui, update_state, check_end_conditions).run_if(in_state(GameState::Main)),
         );
     }
 }
 
-#[derive(Debug, Deserialize, Default, Asset, Resource, Reflect, Clone, Copy)]
-#[serde(default)]
+#[derive(Debug, Default, Asset, Resource, Reflect, Clone)]
 pub struct KingdomState {
     pub heart_size: f32,
-    pub money: f32,
-    pub peasant_happiness: f32,
-    pub tax_income: f32,
+    pub wealth: f32,
+    pub happiness: f32,
+    pub can_use_insight: bool,
+    pub last_decision: Option<Decision>,
+    pub day: usize,
+}
+
+#[derive(Debug, Deserialize, Default, Asset, Resource, Reflect, Clone)]
+#[serde(default)]
+pub struct StateUpdate {
+    pub heart_size: f32,
+    pub wealth: f32,
+    pub happiness: f32,
+    pub can_use_insight: Option<bool>,
 }
 
 impl KingdomState {
-    pub fn apply_request_decision(&mut self, request: &Request, decision: Decision) {
+    pub fn apply_request_decision<'a>(
+        &mut self,
+        request: &'a Request,
+        decision: Decision,
+    ) -> &'a StateUpdate {
         let result = match decision {
             Decision::Yes => &request.yes,
             Decision::No => &request.no,
         };
 
+        self.last_decision = Some(decision);
         self.heart_size += result.heart_size;
-        self.peasant_happiness += result.peasant_happiness;
-        self.tax_income += result.tax_income;
+        self.happiness += result.happiness;
+
+        if let Some(insight) = result.can_use_insight {
+            self.can_use_insight = insight;
+        }
+
+        result
+    }
+
+    /// Calculate the overall prosperity based on wealth and happiness.
+    pub fn prosperity(&self) -> f32 {
+        self.happiness + self.wealth
     }
 }
 
@@ -61,6 +90,7 @@ fn update_state(
     selected_character: Res<SelectedCharacter>,
     mut characters: ResMut<Assets<Character>>,
     system: Res<Characters>,
+    response_handlers: Res<handlers::ResponseHandlers>,
 ) {
     if reader.is_empty() {
         return;
@@ -73,7 +103,20 @@ fn update_state(
                 character.name
             );
 
-            state.apply_request_decision(character.request(), *decision);
+            let request = character
+                .request(state.day)
+                .expect("Character presented with valid request");
+            state.apply_request_decision(request, *decision);
+
+            for handler in request.response_handlers.iter() {
+                match response_handlers.0.get(handler.as_str()) {
+                    Some(id) => commands.run_system(*id),
+                    None => {
+                        warn!("Attempted to run non-existent handler '{handler}'");
+                    }
+                }
+            }
+
             writer.send(NewHeartSize(state.heart_size));
             commands.run_system(system.choose_new_character);
         }
@@ -93,7 +136,7 @@ fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<Kingdo
 fn check_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
     if state.heart_size < 10. || state.heart_size > 90. {
         commands.next_state(GameState::Loose);
-    } else if state.money > 10000. {
+    } else if state.wealth > 10000. {
         commands.next_state(GameState::Win);
     }
 }

@@ -15,7 +15,7 @@ use bevy_tweening::*;
 use character::{CharacterAssets, CharacterPlugin, CharacterUi};
 use lens::{TransformPositionLens, TransformRotateZLens, TransformScaleLens};
 use sickle_ui::{prelude::*, SickleUiPlugin};
-use state::{KingdomState, KingdomStateUi, NewHeartSize, StatePlugin};
+use state::{KingdomState, KingdomStateUi, NewHeartSize, StatePlugin, StateUpdate};
 use type_writer::TypeWriter;
 
 mod animated_sprites;
