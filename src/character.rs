@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
 use crate::ui::{set_world_to_black, ActiveMask};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
 use crate::{type_writer, GameState};
+use bevy::math::VectorSpace;
 use bevy::{
     ecs::system::SystemId,
     input::{keyboard::KeyboardInput, ButtonState},
@@ -10,6 +13,10 @@ use bevy::{
 };
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_common_assets::yaml::YamlAssetPlugin;
+use bevy_tweening::lens::TransformPositionLens;
+use bevy_tweening::{
+    Animator, Delay, EaseFunction, EaseMethod, RepeatCount, RepeatStrategy, Tween, TweenCompleted,
+};
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use serde::Deserialize;
 
@@ -25,14 +32,15 @@ impl Plugin for CharacterPlugin {
                 (
                     load_characters,
                     crate::state::initialize_filters,
-                    // choose_new_character,
+                    choose_new_character,
                 )
                     .chain(),
             )
             .add_systems(PreUpdate, (load_character_sprite, hide_characters))
             .add_systems(
                 Update,
-                (update_character_sprite, character_ui).run_if(in_state(GameState::Main)),
+                (update_character_sprite, character_ui, handle_slide_intro)
+                    .run_if(in_state(GameState::Main)),
             );
     }
 }
@@ -74,7 +82,7 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
         // ("princess", character_assets.princess.clone()),
         ("blacksmith", character_assets.blacksmith.clone()),
         // ("tax-man", character_assets.tax_man.clone()),
-        // ("village-leader", character_assets.village_leader.clone()),
+        ("village-leader", character_assets.village_leader.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
@@ -85,14 +93,19 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
     });
 }
 
+#[derive(Component)]
+struct SlidingIntro;
+
 fn choose_new_character(
     mut commands: Commands,
     server: Res<AssetServer>,
     mut characters: ResMut<Characters>,
     mut character_assets: ResMut<Assets<Character>>,
     mut type_writer: ResMut<TypeWriter>,
-    prev_sel_sprite: Query<Entity, With<SelectedCharacterSprite>>,
+    prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
     state: Res<KingdomState>,
+    sprites: Query<&Transform, With<CharacterSprite>>,
+    mut selected_character: Query<(Entity, &mut SelectedCharacter)>,
 ) {
     let mut rng = thread_rng();
     let (new_character, new_handle, (request_index, request)) = characters
@@ -115,8 +128,23 @@ fn choose_new_character(
     info!("selecting new character: {:?}", new_character);
     characters.current_key = new_character;
 
-    for entity in prev_sel_sprite.iter() {
+    for (entity, transform) in prev_sel_sprite.iter() {
         commands.entity(entity).remove::<SelectedCharacterSprite>();
+
+        let slide = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_secs_f32(1.5),
+            TransformPositionLens {
+                start: transform.translation,
+                end: Vec3::default()
+                    .with_x(-300.)
+                    .with_z(transform.translation.z),
+            },
+        );
+
+        commands.entity(entity).insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+        ));
     }
 
     let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
@@ -127,11 +155,52 @@ fn choose_new_character(
 
     if let Some(entities) = character.sprite {
         for entity in entities.iter() {
-            commands.entity(*entity).insert(SelectedCharacterSprite);
+            if let Ok(sprite) = sprites.get(*entity) {
+                let slide = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_secs_f32(1.5),
+                    TransformPositionLens {
+                        start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
+                        end: Vec3::ZERO.with_z(sprite.translation.z),
+                    },
+                );
+
+                commands.entity(*entity).insert((
+                    SelectedCharacterSprite,
+                    Animator::new(
+                        slide.then(
+                            Delay::new(Duration::from_secs_f32(0.5))
+                                .with_completed_event(FINISHED_SLIDE),
+                        ),
+                    ),
+                ));
+            }
         }
     }
 
-    commands.insert_resource(SelectedCharacter(new_handle));
+    if let Ok((entity, mut selected_character)) = selected_character.get_single_mut() {
+        selected_character.0 = new_handle;
+        commands.entity(entity).insert(SlidingIntro);
+    } else {
+        commands.spawn((SelectedCharacter(new_handle), SlidingIntro));
+    }
+}
+
+const FINISHED_SLIDE: u64 = 0xff3;
+
+fn handle_slide_intro(
+    mut commands: Commands,
+    selected_character: Query<Entity, (With<SelectedCharacter>, With<SlidingIntro>)>,
+    mut completed_tweens: EventReader<TweenCompleted>,
+) {
+    for completion in completed_tweens.read() {
+        if completion.user_data == FINISHED_SLIDE {
+            if let Ok(selected_character) = selected_character.get_single() {
+                println!("finished slide");
+                commands.entity(selected_character).remove::<SlidingIntro>();
+            }
+        }
+    }
 }
 
 fn load_character_sprite(
@@ -153,8 +222,10 @@ fn load_character_sprite(
                     commands
                         .spawn((
                             SpriteBundle {
-                                visibility: Visibility::Visible,
-                                transform: Transform::from_translation(Vec3::default().with_z(1.)),
+                                // visibility: Visibility::Hidden,
+                                transform: Transform::from_translation(
+                                    Vec3::default().with_z(1.).with_x(300.),
+                                ),
                                 texture: head_texture,
                                 ..Default::default()
                             },
@@ -165,8 +236,8 @@ fn load_character_sprite(
                     commands
                         .spawn((
                             SpriteBundle {
-                                visibility: Visibility::Visible,
-                                // transform: Transform::from_scale(Vec3::splat(0.01)),
+                                // visibility: Visibility::Hidden,
+                                transform: Transform::from_xyz(300., 0., 0.),
                                 texture: body_texture,
                                 ..Default::default()
                             },
@@ -201,15 +272,27 @@ pub struct TalkingCharacter;
 
 fn character_ui(
     mut commands: Commands,
-    selected_character: Option<Res<SelectedCharacter>>,
+    selected_character: Query<&SelectedCharacter, Without<SlidingIntro>>,
+    mut sprites: Query<
+        (
+            Entity,
+            &CharacterSprite,
+            &mut Transform,
+            Has<TalkingCharacter>,
+        ),
+        With<SelectedCharacterSprite>,
+    >,
     characters: Res<Assets<Character>>,
     mut character_ui: Query<(&mut Text, &CharacterUi)>,
     mut type_writer: ResMut<TypeWriter>,
     mut reader: EventReader<KeyboardInput>,
     time: Res<Time>,
 ) {
-    let Some(selected_character) = selected_character else {
+    let Ok(selected_character) = selected_character.get_single() else {
         commands.remove_resource::<ActiveMask>();
+        for (mut text, _) in character_ui.iter_mut() {
+            text.sections[0].style.color.set_alpha(0.);
+        }
 
         return;
     };
@@ -228,12 +311,64 @@ fn character_ui(
         for (mut text, ui) in character_ui.iter_mut() {
             match ui {
                 CharacterUi::Name => {
-                    if selected_character.is_changed() {
-                        text.sections[0].value = format!("Character: {:?}", character.name);
-                    }
+                    // if selected_character.is_changed() {
+                    //     text.sections[0].value = format!("Character: {:?}", character.name);
+                    // }
                 }
                 CharacterUi::Request => {
+                    text.sections[0].style.color.set_alpha(1.);
                     text.sections[0].value = type_writer.slice_with_line_wrap().into();
+
+                    if !type_writer.is_finished {
+                        for (sprite, ty, transform, is_talking) in sprites.iter() {
+                            if is_talking {
+                                continue;
+                            }
+
+                            match ty {
+                                CharacterSprite::Head => {
+                                    let talking_tween = Tween::new(
+                                        EaseMethod::Linear,
+                                        Duration::from_secs_f32(0.3),
+                                        TransformPositionLens {
+                                            start: Vec3::ZERO.with_z(transform.translation.z),
+                                            end: Vec3::ZERO
+                                                .with_z(transform.translation.z)
+                                                .with_y(2.),
+                                        },
+                                    )
+                                    .with_repeat_count(RepeatCount::Infinite)
+                                    .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
+
+                                    info!("inserting talking animation");
+
+                                    commands
+                                        .entity(sprite)
+                                        .insert((TalkingCharacter, Animator::new(talking_tween)));
+                                }
+                                _ => {}
+                            }
+                        }
+                    } else {
+                        for (sprite, ty, mut transform, is_talking) in sprites.iter_mut() {
+                            if !is_talking {
+                                continue;
+                            }
+
+                            match ty {
+                                CharacterSprite::Head => {
+                                    transform.translation.y = 0.;
+
+                                    info!("removing talking animation");
+
+                                    commands
+                                        .entity(sprite)
+                                        .remove::<(TalkingCharacter, Animator<Transform>)>();
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -253,13 +388,13 @@ fn update_character_sprite(
 ) {
     let window = windows.single();
 
-    for mut vis in character_sprite.iter_mut() {
-        *vis = Visibility::Visible;
-    }
+    // for mut vis in character_sprite.iter_mut() {
+    //     *vis = Visibility::Visible;
+    // }
 
-    for mut transform in talking_sprite.iter_mut() {
-        transform.translation.x += 0.01;
-    }
+    // for mut transform in talking_sprite.iter_mut() {
+    //     transform.translation.y += 0.01;
+    // }
 
     // if let Some(world_position) = window.cursor_position() {
     //     if world_position.y > 100. && world_position.y < 400. {
@@ -270,7 +405,7 @@ fn update_character_sprite(
     // }
 }
 
-#[derive(Debug, Default, Resource)]
+#[derive(Debug, Default, Component)]
 pub struct SelectedCharacter(pub Handle<Character>);
 
 #[derive(Debug, Deserialize, Asset, Component, TypePath)]
