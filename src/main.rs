@@ -9,7 +9,7 @@ use bevy_asset_loader::loading_state::{
 use character::{CharacterAssets, CharacterPlugin};
 use pixel_perfect::PixelPerfectPlugin;
 use state::{KingdomState, StatePlugin, StateUpdate};
-use ui::UiPlugin;
+use ui::{set_world_to_black, UiPlugin};
 
 mod animated_sprites;
 mod character;

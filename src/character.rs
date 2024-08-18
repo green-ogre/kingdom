@@ -1,6 +1,7 @@
-use crate::ui::ActiveMask;
-use crate::GameState;
+use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
+use crate::ui::{set_world_to_black, ActiveMask};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
+use crate::{type_writer, GameState};
 use bevy::{
     ecs::system::SystemId,
     input::{keyboard::KeyboardInput, ButtonState},
@@ -61,17 +62,19 @@ pub struct Characters {
     pub choose_new_character: SystemId,
 }
 
+fn manage_game_state(mut commands: Commands) {}
+
 fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets>) {
     let mut characters = HashMap::default();
 
     characters.extend([
-        ("jeremy", character_assets.jeremy.clone()),
-        ("merideth", character_assets.merideth.clone()),
-        ("prince", character_assets.prince.clone()),
-        ("princess", character_assets.princess.clone()),
+        // ("jeremy", character_assets.jeremy.clone()),
+        // ("merideth", character_assets.merideth.clone()),
+        // ("prince", character_assets.prince.clone()),
+        // ("princess", character_assets.princess.clone()),
         ("blacksmith", character_assets.blacksmith.clone()),
-        ("tax-man", character_assets.tax_man.clone()),
-        ("village-leader", character_assets.village_leader.clone()),
+        // ("tax-man", character_assets.tax_man.clone()),
+        // ("village-leader", character_assets.village_leader.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
@@ -121,6 +124,13 @@ fn choose_new_character(
 
     let character = character_assets.get_mut(&new_handle).unwrap();
     character.set_used(state.day, request_index);
+
+    if let Some(entities) = character.sprite {
+        for entity in entities.iter() {
+            commands.entity(*entity).insert(SelectedCharacterSprite);
+        }
+    }
+
     commands.insert_resource(SelectedCharacter(new_handle));
 }
 
@@ -134,21 +144,37 @@ fn load_character_sprite(
         match character {
             AssetEvent::Added { id } => {
                 let character = characters.get_mut(*id).unwrap();
-                let texture = server.load(character.sprite_path.trim().to_string());
-                character.texture = Some(texture.clone());
-                character.sprite = Some(
+                let head_texture =
+                    server.load(format!("{}_head.png", character.sprite_path.trim()));
+                let body_texture =
+                    server.load(format!("{}_body.png", character.sprite_path.trim()));
+
+                character.sprite = Some([
                     commands
                         .spawn((
-                            // SpriteBundle {
-                            //     visibility: Visibility::Hidden,
-                            //     transform: Transform::from_scale(Vec3::splat(0.01)),
-                            //     texture,
-                            //     ..Default::default()
-                            // },
-                            CharacterSprite,
+                            SpriteBundle {
+                                visibility: Visibility::Visible,
+                                transform: Transform::from_translation(Vec3::default().with_z(1.)),
+                                texture: head_texture,
+                                ..Default::default()
+                            },
+                            CharacterSprite::Head,
+                            PIXEL_PERFECT_LAYER,
                         ))
                         .id(),
-                );
+                    commands
+                        .spawn((
+                            SpriteBundle {
+                                visibility: Visibility::Visible,
+                                // transform: Transform::from_scale(Vec3::splat(0.01)),
+                                texture: body_texture,
+                                ..Default::default()
+                            },
+                            CharacterSprite::Body,
+                            PIXEL_PERFECT_LAYER,
+                        ))
+                        .id(),
+                ]);
             }
             _ => {}
         }
@@ -156,7 +182,10 @@ fn load_character_sprite(
 }
 
 #[derive(Component)]
-struct CharacterSprite;
+enum CharacterSprite {
+    Head,
+    Body,
+}
 
 #[derive(Component)]
 struct SelectedCharacterSprite;
@@ -166,6 +195,9 @@ pub enum CharacterUi {
     Name,
     Request,
 }
+
+#[derive(Component)]
+pub struct TalkingCharacter;
 
 fn character_ui(
     mut commands: Commands,
@@ -210,28 +242,32 @@ fn character_ui(
 
 fn hide_characters(mut character_sprites: Query<&mut Visibility, With<CharacterSprite>>) {
     for mut vis in character_sprites.iter_mut() {
-        *vis = Visibility::Hidden;
+        // *vis = Visibility::Hidden;
     }
 }
 
 fn update_character_sprite(
     windows: Query<&Window>,
-    mut character_sprite: Query<(&mut Transform, &mut Visibility), With<SelectedCharacterSprite>>,
+    mut character_sprite: Query<&mut Visibility, With<SelectedCharacterSprite>>,
+    mut talking_sprite: Query<&mut Transform, With<TalkingCharacter>>,
 ) {
     let window = windows.single();
-    let Ok((mut sprite, mut vis)) = character_sprite.get_single_mut() else {
-        return;
-    };
 
-    *vis = Visibility::Visible;
-
-    if let Some(world_position) = window.cursor_position() {
-        if world_position.y > 100. && world_position.y < 400. {
-            sprite.scale = Vec3::splat(1.2);
-        } else {
-            sprite.scale = Vec3::splat(1.0);
-        }
+    for mut vis in character_sprite.iter_mut() {
+        *vis = Visibility::Visible;
     }
+
+    for mut transform in talking_sprite.iter_mut() {
+        transform.translation.x += 0.01;
+    }
+
+    // if let Some(world_position) = window.cursor_position() {
+    //     if world_position.y > 100. && world_position.y < 400. {
+    //         sprite.scale = Vec3::splat(1.2);
+    //     } else {
+    //         sprite.scale = Vec3::splat(1.0);
+    //     }
+    // }
 }
 
 #[derive(Debug, Default, Resource)]
@@ -247,9 +283,7 @@ pub struct Character {
     #[serde(skip)]
     current_request: Option<usize>,
     #[serde(skip)]
-    pub texture: Option<Handle<Image>>,
-    #[serde(skip)]
-    pub sprite: Option<Entity>,
+    pub sprite: Option<[Entity; 2]>,
 }
 
 impl Character {

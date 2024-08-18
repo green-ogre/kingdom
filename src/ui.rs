@@ -30,12 +30,14 @@ impl Plugin for UiPlugin {
             .add_systems(
                 OnEnter(GameState::Main),
                 (
+                    startup,
                     setup,
                     setup_ui,
                     setup_heart_ui,
                     setup_courtroom,
                     setup_background,
                     setup_cursor,
+                    set_world_to_black,
                 ),
             )
             .add_systems(
@@ -133,6 +135,27 @@ impl FadeToBlack {
             total_steps: steps,
             steps,
         }
+    }
+}
+
+pub fn set_world_to_black(
+    mut ui_images: Query<&mut UiImage, With<UiNode>>,
+    mut ui_text: Query<&mut Text, With<UiNode>>,
+    mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
+) {
+    for mut image in ui_images.iter_mut() {
+        image.color.set_alpha(0.);
+    }
+
+    for mut text in ui_text.iter_mut() {
+        for section in text.sections.iter_mut() {
+            let color = &mut section.style.color;
+            color.set_alpha(0.);
+        }
+    }
+
+    if let Ok(mut sprite) = sprite.get_single_mut() {
+        sprite.color.set_alpha(1.);
     }
 }
 
@@ -246,21 +269,19 @@ pub const HEART_SCALE: f32 = 16.;
 pub const FONT_PATH: &'static str = "ui/alagard.ttf";
 
 #[derive(Component)]
-struct UiNode;
+pub struct UiNode;
 
 #[derive(Component)]
-struct FadeToBlackSprite;
+pub struct FadeToBlackSprite;
 
 #[derive(Component)]
 struct NextDayUi;
 
-fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWriter<EndDay>) {
-    writer.send(EndDay);
-
+fn startup(mut commands: Commands) {
     commands.spawn((
         SpriteBundle {
             sprite: Sprite {
-                color: Color::srgba(0.0, 0.0, 0.0, 0.0),
+                color: Color::srgba(0.0, 0.0, 0.0, 1.0),
                 custom_size: Some(Vec2::new(1000.0, 1000.0)),
                 ..default()
             },
@@ -269,6 +290,10 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWrit
         },
         FadeToBlackSprite,
     ));
+}
+
+fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWriter<EndDay>) {
+    // writer.send(EndDay);
 
     commands
         .spawn((
@@ -610,8 +635,6 @@ fn setup_ui(
         UiNode,
         PIXEL_PERFECT_LAYER,
     ));
-
-    commands.insert_resource(ActiveMask(Mask::Happy));
 }
 
 fn setup_cursor(

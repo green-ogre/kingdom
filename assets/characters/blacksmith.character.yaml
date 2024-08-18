@@ -2,7 +2,7 @@
 # he turns out to be a big help later on.
 name: Blacksmith
 class: Craftsman
-sprite_path: "characters/images/jeremy.png"
+sprite_path: "characters/blacksmith"
 requests:
   - - text: |
         I need men for my hammers and bellows. None would willingly leave the fields at a time like this. I need you to force them. Even slaves will do. I'm sure you understand the important of my work.
