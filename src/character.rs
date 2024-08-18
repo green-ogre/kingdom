@@ -115,6 +115,7 @@ fn load_character_sprite(
                         .spawn((
                             SpriteBundle {
                                 visibility: Visibility::Hidden,
+                                transform: Transform::from_scale(Vec3::splat(0.5)),
                                 texture,
                                 ..Default::default()
                             },

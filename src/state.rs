@@ -1,6 +1,7 @@
 use crate::{
     character::{Character, Characters, Request, SelectedCharacter},
-    Decision, GameState,
+    ui::Decision,
+    GameState,
 };
 use bevy::prelude::*;
 use serde::Deserialize;
