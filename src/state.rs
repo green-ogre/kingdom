@@ -28,10 +28,13 @@ impl Plugin for StatePlugin {
                 PostUpdate,
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
                 // this one so one-shot systems have a chance to actually be applied.
-                (state_ui, update_state, check_end_conditions).run_if(in_state(GameState::Main)),
+                (state_ui, update_state, check_heart_end_conditions)
+                    .run_if(in_state(GameState::Main)),
             );
     }
 }
+
+pub const PROSPERITY_THRESHOLDS: [f32; 4] = [10., 20., 30., 40.];
 
 #[derive(Debug, Default, Asset, Resource, Reflect, Clone)]
 pub struct KingdomState {
@@ -148,7 +151,7 @@ fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<Kingdo
     }
 }
 
-fn check_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
+fn check_heart_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
     if state.heart_size < 10. || state.heart_size > 90. {
         commands.next_state(GameState::Loose);
     } else if state.wealth > 10000. {

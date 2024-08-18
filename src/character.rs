@@ -44,6 +44,8 @@ pub struct CharacterAssets {
     merideth: Handle<Character>,
     #[asset(path = "characters/prince.character.yaml")]
     prince: Handle<Character>,
+    #[asset(path = "characters/princess.character.yaml")]
+    princess: Handle<Character>,
 }
 
 #[derive(Debug, Resource)]
@@ -58,6 +60,7 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
     characters.insert("jeremy", character_assets.jeremy.clone());
     characters.insert("merideth", character_assets.merideth.clone());
     characters.insert("prince", character_assets.prince.clone());
+    characters.insert("princess", character_assets.princess.clone());
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
     commands.insert_resource(Characters {

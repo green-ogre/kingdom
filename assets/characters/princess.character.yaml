@@ -1,0 +1,21 @@
+name: Princess
+class: Royal
+sprite_path: "characters/prince.png"
+requests:
+  - - text: |
+        some nice text
+      yes:
+        heart_size: 10
+        happiness: 10
+        wealth: -10
+      no:
+        heart_size: -10
+  - - text: |
+        That good-for-nothing prince killed our dear mother on the day of his birth.
+        If you don't grow a spine, he'll be the death of you, too.
+      yes:
+        heart_size: 10
+        happiness: 10
+        wealth: -10
+      no:
+        heart_size: -10
