@@ -8,7 +8,6 @@ use bevy::{
 };
 use bevy_asset_loader::asset_collection::AssetCollection;
 use bevy_common_assets::yaml::YamlAssetPlugin;
-use foldhash::HashSet;
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use serde::Deserialize;
 
@@ -21,7 +20,12 @@ impl Plugin for CharacterPlugin {
             .insert_resource(SelectedCharacter::default())
             .add_systems(
                 OnEnter(GameState::Main),
-                (load_characters, choose_new_character).chain(),
+                (
+                    load_characters,
+                    crate::state::initialize_filters,
+                    choose_new_character,
+                )
+                    .chain(),
             )
             .add_systems(PreUpdate, (load_character_sprite, hide_characters))
             .add_systems(
@@ -222,8 +226,6 @@ pub struct Character {
     #[serde(skip)]
     current_request: Option<usize>,
     #[serde(skip)]
-    used_requests: HashMap<usize, HashSet<usize>>,
-    #[serde(skip)]
     pub texture: Option<Handle<Image>>,
     #[serde(skip)]
     pub sprite: Option<Entity>,
@@ -234,23 +236,18 @@ impl Character {
     /// along with its index.
     pub fn sample_requests(&self, day: usize, rng: &mut impl Rng) -> Option<(usize, &Request)> {
         self.requests.get(day).and_then(|requests| {
-            if let Some(used) = self.used_requests.get(&day) {
-                requests
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, _)| !used.contains(&i))
-                    .choose(rng)
-            } else {
-                requests.iter().enumerate().choose(rng)
-            }
+            requests
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| r.availability.is_available())
+                .choose(rng)
         })
     }
 
     /// Set a request previously sampled with `sample_requests` as the current used request.
     pub fn set_used(&mut self, day: usize, request: usize) {
         self.current_request = Some(request);
-        let used = self.used_requests.entry(day).or_default();
-        used.insert(request);
+        self.requests[day][request].availability.used = true;
     }
 
     /// Get the current request if any.
@@ -271,11 +268,27 @@ pub enum Class {
     Royal,
 }
 
+#[derive(Debug, Default, Deserialize, Component, Reflect, Clone)]
+pub struct RequestAvailability {
+    pub filtered: bool,
+    pub used: bool,
+}
+
+impl RequestAvailability {
+    pub fn is_available(&self) -> bool {
+        !(self.filtered || self.used)
+    }
+}
+
 #[derive(Debug, Deserialize, Asset, Component, Reflect, Clone)]
 pub struct Request {
     pub text: String,
     pub yes: StateUpdate,
     pub no: StateUpdate,
     #[serde(default)]
+    pub filter: Option<String>,
+    #[serde(default)]
     pub response_handlers: Vec<String>,
+    #[serde(default)]
+    pub availability: RequestAvailability,
 }

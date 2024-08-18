@@ -9,24 +9,26 @@ use sickle_ui::ui_commands::UpdateStatesExt;
 
 mod handlers;
 
+pub use handlers::initialize_filters;
+
 pub struct StatePlugin;
 
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(KingdomState {
-            heart_size: 50.,
-            wealth: 100.,
-            ..Default::default()
-        })
-        .add_event::<Decision>()
-        .add_event::<NewHeartSize>()
-        .add_systems(Startup, handlers::ResponseHandlers::insert)
-        .add_systems(
-            PostUpdate,
-            // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
-            // this one so one-shot systems have a chance to actually be applied.
-            (state_ui, update_state, check_end_conditions).run_if(in_state(GameState::Main)),
-        );
+        app.add_plugins(handlers::HandlerPlugin)
+            .insert_resource(KingdomState {
+                heart_size: 50.,
+                wealth: 100.,
+                ..Default::default()
+            })
+            .add_event::<Decision>()
+            .add_event::<NewHeartSize>()
+            .add_systems(
+                PostUpdate,
+                // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
+                // this one so one-shot systems have a chance to actually be applied.
+                (state_ui, update_state, check_end_conditions).run_if(in_state(GameState::Main)),
+            );
     }
 }
 
@@ -92,13 +94,14 @@ fn update_state(
     mut characters: ResMut<Assets<Character>>,
     system: Res<Characters>,
     response_handlers: Res<handlers::ResponseHandlers>,
+    filters: Res<handlers::Filters>,
 ) {
     if reader.is_empty() {
         return;
     }
 
     if let Some(character) = characters.get_mut(&selected_character.0) {
-        for decision in reader.read() {
+        if let Some(decision) = reader.read().last() {
             info!(
                 "applying decision [{decision:?}] for character [{}]",
                 character.name
@@ -119,13 +122,21 @@ fn update_state(
             }
 
             writer.send(NewHeartSize(state.heart_size));
-            commands.run_system(system.choose_new_character);
         }
     } else {
         if !reader.is_empty() {
             error!("did not handle decision due to unloaded character");
         }
+        return;
     }
+
+    // run filters
+    filters.run(
+        state.day,
+        system.table.values().filter_map(|v| characters.get(v)),
+        &mut commands,
+    );
+    commands.run_system(system.choose_new_character);
 }
 
 fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<KingdomStateUi>>) {
