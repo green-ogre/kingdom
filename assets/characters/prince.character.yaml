@@ -12,6 +12,7 @@ requests:
         heart_size: -10
     - text: |
         another one
+      filter: prince_one
       yes:
         heart_size: 10
         happiness: 10
