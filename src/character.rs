@@ -1,11 +1,13 @@
 use crate::{
+    character,
     type_writer::{self, TypeWriter},
     GameState, KingdomState,
 };
 use bevy::{
-    ecs::system::SystemId,
+    ecs::{system::SystemId, world},
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
+    render::view::RenderLayers,
     utils::HashMap,
 };
 use bevy_asset_loader::asset_collection::AssetCollection;
@@ -27,7 +29,7 @@ impl Plugin for CharacterPlugin {
             .add_systems(PreUpdate, (load_character_sprite, hide_characters))
             .add_systems(
                 Update,
-                (show_character, character_ui).run_if(in_state(GameState::Main)),
+                (update_character_sprite, character_ui).run_if(in_state(GameState::Main)),
             );
     }
 }
@@ -61,11 +63,13 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
 }
 
 fn choose_new_character(
+    mut commands: Commands,
     server: Res<AssetServer>,
     mut characters: ResMut<Characters>,
     mut selected_character: ResMut<SelectedCharacter>,
     mut character_assets: ResMut<Assets<Character>>,
     mut type_writer: ResMut<TypeWriter>,
+    prev_sel_sprite: Query<Entity, With<SelectedCharacterSprite>>,
 ) {
     let peasants = ["merideth", "jeremy"];
 
@@ -81,8 +85,16 @@ fn choose_new_character(
             let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
             *type_writer = TypeWriter::new(character.request().text.clone(), 0.025, sfx);
 
+            if let Some(sprite) = character.sprite {
+                commands.entity(sprite).insert(SelectedCharacterSprite);
+            }
+
             break;
         }
+    }
+
+    for entity in prev_sel_sprite.iter() {
+        commands.entity(entity).remove::<SelectedCharacterSprite>();
     }
 }
 
@@ -101,12 +113,12 @@ fn load_character_sprite(
                 character.sprite = Some(
                     commands
                         .spawn((
-                            SpriteBundle {
-                                visibility: Visibility::Hidden,
-                                transform: Transform::from_scale(Vec3::splat(0.5)),
-                                texture,
-                                ..Default::default()
-                            },
+                            // SpriteBundle {
+                            //     visibility: Visibility::Hidden,
+                            //     transform: Transform::from_scale(Vec3::splat(0.01)),
+                            //     texture,
+                            //     ..Default::default()
+                            // },
                             CharacterSprite,
                         ))
                         .id(),
@@ -119,6 +131,9 @@ fn load_character_sprite(
 
 #[derive(Component)]
 struct CharacterSprite;
+
+#[derive(Component)]
+struct SelectedCharacterSprite;
 
 #[derive(Component)]
 pub enum CharacterUi {
@@ -167,24 +182,30 @@ fn hide_characters(mut character_sprites: Query<&mut Visibility, With<CharacterS
     }
 }
 
-fn show_character(
-    selected_character: Res<SelectedCharacter>,
-    characters: Res<Assets<Character>>,
-    mut character_sprites: Query<&mut Visibility, With<Sprite>>,
+fn update_character_sprite(
+    windows: Query<&Window>,
+    mut character_sprite: Query<(&mut Transform, &mut Visibility), With<SelectedCharacterSprite>>,
 ) {
-    if let Some(character) = characters.get(&selected_character.0) {
-        if let Some(sprite) = character.sprite {
-            if let Ok(mut vis) = character_sprites.get_mut(sprite) {
-                *vis = Visibility::Visible;
-            }
+    let window = windows.single();
+    let Ok((mut sprite, mut vis)) = character_sprite.get_single_mut() else {
+        return;
+    };
+
+    *vis = Visibility::Visible;
+
+    if let Some(world_position) = window.cursor_position() {
+        if world_position.y > 100. && world_position.y < 400. {
+            sprite.scale = Vec3::splat(1.2);
+        } else {
+            sprite.scale = Vec3::splat(1.0);
         }
     }
 }
 
-#[derive(Debug, Default, Resource, Reflect)]
+#[derive(Debug, Default, Resource)]
 pub struct SelectedCharacter(pub Handle<Character>);
 
-#[derive(Debug, Deserialize, Asset, Component, Reflect)]
+#[derive(Debug, Deserialize, Asset, Component, TypePath)]
 pub struct Character {
     pub name: String,
     pub class: Class,

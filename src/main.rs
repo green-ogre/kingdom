@@ -7,11 +7,13 @@ use bevy_asset_loader::loading_state::{
     config::ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
 use character::{CharacterAssets, CharacterPlugin};
+use pixel_perfect::PixelPerfectPlugin;
 use state::{KingdomState, StatePlugin};
 use ui::UiPlugin;
 
 mod animated_sprites;
 mod character;
+mod pixel_perfect;
 mod state;
 mod type_writer;
 mod ui;
@@ -33,6 +35,7 @@ fn main() {
             CharacterPlugin,
             StatePlugin,
             UiPlugin,
+            PixelPerfectPlugin,
         ))
         .init_state::<GameState>()
         .add_loading_state(
@@ -75,5 +78,11 @@ fn close_on_escape(mut input: EventReader<KeyboardInput>, mut writer: EventWrite
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    // commands.spawn(Camera2dBundle {
+    //     camera: Camera {
+    //         clear_color: ClearColorConfig::Custom(Color::linear_rgba(0., 0., 0., 0.)),
+    //         ..Default::default()
+    //     },
+    //     ..Default::default()
+    // });
 }

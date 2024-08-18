@@ -1,10 +1,14 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
 use crate::character::CharacterUi;
+use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
 use crate::state::{KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
+use bevy::audio::PlaybackMode;
+use bevy::render::view::RenderLayers;
 use bevy::{audio::Volume, prelude::*};
 use bevy_tweening::*;
 use lens::{TransformRotateZLens, TransformScaleLens};
+use rand::Rng;
 use sickle_ui::{prelude::*, SickleUiPlugin};
 use std::time::Duration;
 
@@ -15,12 +19,22 @@ pub struct UiPlugin;
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((TweeningPlugin, SickleUiPlugin))
-            .add_systems(OnEnter(GameState::Main), (setup, setup_heart_ui))
-            .add_systems(Update, heart_ui.run_if(in_state(GameState::Main)))
+            .add_systems(
+                OnEnter(GameState::Main),
+                (
+                    setup,
+                    setup_ui,
+                    setup_heart_ui,
+                    setup_courtroom,
+                    setup_background,
+                ),
+            )
+            .add_systems(Update, (heart_ui).run_if(in_state(GameState::Main)))
             .add_systems(
                 PreUpdate,
                 should_show_selection_ui.run_if(in_state(GameState::Main)),
             )
+            .add_systems(FixedPreUpdate, (animate_clouds, animate_crowd))
             .add_systems(Update, selection_ui.run_if(in_state(GameState::Main)))
             .add_systems(OnEnter(GameState::Win), win_ui)
             .add_systems(OnEnter(GameState::Loose), loose_ui)
@@ -151,6 +165,167 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
     //     .justify_content(JustifyContent::Start);
 }
 
+fn setup_background(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+) {
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("clouds.png"),
+            transform: Transform::from_scale(Vec3::splat(1.))
+                .with_translation(Vec3::new(-256., 10., -100.)),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(256. * 4., 176.)),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+        BackgroundClouds,
+        ImageScaleMode::Tiled {
+            tile_x: true,
+            tile_y: true,
+            stretch_value: 1.,
+        },
+        PIXEL_PERFECT_LAYER,
+        AudioBundle {
+            source: server.load("audio/wind.mp3"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                volume: Volume::new(1.),
+                ..Default::default()
+            },
+        },
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("town.png"),
+            transform: Transform::from_translation(Vec3::default().with_z(-50.)),
+            ..Default::default()
+        },
+        BackgroundTown,
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    let layout = TextureAtlasLayout::from_grid(UVec2::new(300, 135), 2, 1, None, None);
+    let texture_atlas_layout = texture_atlas_layouts.add(layout);
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("crowd_layer_3.png"),
+            transform: Transform::from_translation(Vec3::new(0., 0., -40.)),
+            ..Default::default()
+        },
+        TextureAtlas {
+            layout: texture_atlas_layout.clone(),
+            index: 0,
+        },
+        Crowd::Three(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("crowd_layer_2.png"),
+            transform: Transform::from_translation(Vec3::new(0., 0., -30.)),
+            ..Default::default()
+        },
+        TextureAtlas {
+            layout: texture_atlas_layout.clone(),
+            index: 0,
+        },
+        Crowd::Two(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("crowd_layer_1.png"),
+            transform: Transform::from_translation(Vec3::new(0., 0., -20.)),
+            ..Default::default()
+        },
+        TextureAtlas {
+            layout: texture_atlas_layout.clone(),
+            index: 0,
+        },
+        Crowd::One(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/crowd.mp3"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                volume: Volume::new(0.025),
+                ..Default::default()
+            },
+        },
+        CrowdAudio,
+    ));
+}
+
+#[derive(Component)]
+struct BackgroundClouds;
+
+#[derive(Component)]
+struct BackgroundTown;
+
+fn animate_clouds(mut clouds: Query<&mut Transform, With<BackgroundClouds>>, time: Res<Time>) {
+    const SPEED: f32 = 0.5;
+
+    if let Ok(mut clouds) = clouds.get_single_mut() {
+        if clouds.translation.x >= 256. {
+            clouds.translation.x = -256.;
+        }
+        clouds.translation.x += time.delta_seconds() * SPEED;
+    }
+}
+
+#[derive(Component)]
+enum Crowd {
+    One(Timer),
+    Two(Timer),
+    Three(Timer),
+}
+
+#[derive(Component)]
+struct CrowdAudio;
+
+fn animate_crowd(mut crowds: Query<(&mut Crowd, &mut TextureAtlas)>, time: Res<Time>) {
+    for (crowd, mut atlas) in crowds.iter_mut() {
+        let duration = rand::thread_rng().gen_range(1.2..1.5);
+        let timer = match crowd.into_inner() {
+            Crowd::One(timer) => timer,
+            Crowd::Two(timer) => timer,
+            Crowd::Three(timer) => timer,
+        };
+
+        timer.tick(time.delta());
+
+        if timer.finished() {
+            timer.set_duration(Duration::from_secs_f32(duration));
+            atlas.index += 1;
+            if atlas.index >= 2 {
+                atlas.index = 0;
+            }
+        }
+    }
+}
+
+fn setup_ui(mut commands: Commands, server: Res<AssetServer>) {
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("ui/ui.png"),
+            transform: Transform::from_xyz(0., 0., 10.),
+            // .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
+            ..Default::default()
+        },
+        PIXEL_PERFECT_LAYER,
+    ));
+}
+
 fn setup_heart_ui(
     mut commands: Commands,
     server: Res<AssetServer>,
@@ -164,8 +339,8 @@ fn setup_heart_ui(
     commands.spawn((
         SpriteBundle {
             texture,
-            transform: Transform::from_xyz(-700., -250., 100.)
-                .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
+            transform: Transform::from_xyz(-90., -45., 100.),
+            // .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
             ..Default::default()
         },
         TextureAtlas {
@@ -175,6 +350,7 @@ fn setup_heart_ui(
         animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
         HeartUi,
+        PIXEL_PERFECT_LAYER,
     ));
 }
 
@@ -195,7 +371,7 @@ fn heart_ui(
             return;
         };
 
-        transform.scale = Vec3::splat(HEART_SCALE * (new_size.0 / 130.));
+        // transform.scale = Vec3::splat(HEART_SCALE * (new_size.0 / 130.));
 
         commands.spawn(AudioBundle {
             source: server.load("audio/heartbeat.wav"),
@@ -207,7 +383,7 @@ fn heart_ui(
             EaseFunction::QuadraticInOut,
             // Animation time (one way only; for ping-pong it takes 2 seconds
             // to come back to start).
-            Duration::from_secs_f32(0.1),
+            Duration::from_secs_f32(1.0),
             // The lens gives the Animator access to the Transform component,
             // to animate it. It also contains the start and end values associated
             // with the animation ratios 0. and 1.
@@ -216,7 +392,7 @@ fn heart_ui(
                 end: transform.scale * Vec3::new(1.1, 1.05, 1.),
             },
         )
-        .with_repeat_count(RepeatCount::Finite(4))
+        .with_repeat_count(RepeatCount::Infinite)
         .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
 
         let rotate = Tween::new(
@@ -241,6 +417,47 @@ fn heart_ui(
             .insert(Animator::new(Tracks::new([pulse, rotate])));
     }
 }
+
+fn setup_courtroom(mut commands: Commands, server: Res<AssetServer>) {
+    // commands.spawn((
+    //     SpriteBundle {
+    //         texture: server.load("court_room/simplified/Level_0/_composite.png"),
+    //         transform: Transform::default().with_scale(Vec3::splat(8.)),
+    //         ..Default::default()
+    //     },
+    //     RenderLayers::layer(1),
+    // ));
+
+    // commands.spawn((
+    //     Camera2dBundle {
+    //         camera: Camera {
+    //             hdr: true,
+    //             order: -1,
+    //             ..Default::default()
+    //         },
+    //         ..Default::default()
+    //     },
+    //     RenderLayers::layer(1),
+    //     CourtRoomCamera,
+    // ));
+}
+
+// #[derive(Component)]
+// struct CourtRoomSprite;
+//
+// fn update_courtroom(
+//     windows: Query<&Window>,
+//     court_room: Query<&mut Transform, With<CourtRoomSprite>>,
+// ) {
+//     let window = windows.single();
+//
+//     const PARALLAX_FACTOR: f32 = 0.05;
+//
+//     if let Some(world_position) = window.cursor_position() {
+//         transform.translation.x = (world_position.x - 960.) * PARALLAX_FACTOR;
+//         transform.translation.y = (world_position.y - 540.) * PARALLAX_FACTOR;
+//     }
+// }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
