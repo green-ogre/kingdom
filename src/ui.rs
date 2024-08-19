@@ -406,11 +406,13 @@ pub struct FadeToBlackSprite;
 struct NextDayUi;
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
-    // commands.next_state(GameState::Night);
-    commands.next_state(TimeState::Evening);
+    // commands.next_state(TimeState::Evening);
+    // commands.next_state(TimeState::Morning);
 
     let id = commands.register_one_shot_system(spawn_insight);
     commands.insert_resource(SpawnInsight(id));
+    let id = commands.register_one_shot_system(despawn_insight);
+    commands.insert_resource(DespawnInsight(id));
     // commands.run_system(id);
 
     commands.spawn((
@@ -451,76 +453,25 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWrit
         ))
         .insert(Visibility::Hidden);
 
-    commands
-        .ui_builder(UiRoot)
-        .column(|column| {
-            // column.spawn((
-            //     TextBundle::from_section(
-            //         "Heart: {}",
-            //         TextStyle {
-            //             font: server.load(FONT_PATH),
-            //             font_size: 30.0,
-            //             ..default()
-            //         },
-            //     ),
-            //     HeartUi,
-            // ));
-            // column.spawn((
-            //     TextBundle::from_section(
-            //         "Character: {}",
-            //         TextStyle {
-            //             font: server.load(FONT_PATH),
-            //             font_size: 30.0,
-            //             ..default()
-            //         },
-            //     ),
-            //     CharacterUi::Name,
-            // ));
-        })
-        .style()
-        .justify_content(JustifyContent::End);
-
-    commands
-        .ui_builder(UiRoot)
-        .column(|column| {
-            column
-                .row(|row| {
-                    row.spawn((ButtonBundle::default(), DecisionType::Yes))
-                        .entity_commands()
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
-                                "I concur.",
-                                TextStyle {
-                                    font: server.load(FONT_PATH),
-                                    font_size: 30.0,
-                                    ..default()
-                                },
-                            ));
-                        });
-
-                    row.spawn((ButtonBundle::default(), DecisionType::No))
-                        .entity_commands()
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
-                                "I do not concur.",
-                                TextStyle {
-                                    font: server.load(FONT_PATH),
-                                    font_size: 30.0,
-                                    ..default()
-                                },
-                            ));
-                        });
-                })
-                .insert((DecisionUi, Visibility::Visible));
-        })
-        .style()
-        .justify_content(JustifyContent::Center);
-
-    commands
-        .ui_builder(UiRoot)
-        .column(|column| {})
-        .style()
-        .justify_content(JustifyContent::Start);
+    // commands.ui_builder(UiRoot).column(|column| {
+    //     column
+    //         .row(|row| {
+    //             row.spawn((ButtonBundle::default(), DecisionType::Yes))
+    //                 .insert(Visibility::Hidden)
+    //                 .style()
+    //                 .position_type(PositionType::Absolute)
+    //                 .top(Val::Px(180.))
+    //                 .left(Val::Percent(76.));
+    //
+    //             row.spawn((ButtonBundle::default(), DecisionType::No))
+    //                 .insert(Visibility::Hidden)
+    //                 .style()
+    //                 .position_type(PositionType::Absolute)
+    //                 .top(Val::Px(180.))
+    //                 .left(Val::Px(140.));
+    //         })
+    //         .insert((DecisionUi, Visibility::Visible));
+    // });
 
     commands.spawn((
         TextBundle::from_section(
@@ -834,6 +785,9 @@ impl Default for Insight {
 #[derive(Event)]
 pub struct AquireInsight;
 
+#[derive(Component)]
+pub struct InsightChargeSfx;
+
 pub fn update_cursor(
     windows: Query<&Window>,
     mut cursor: Query<(Entity, &mut Style), (With<Cursor>, Without<InsightToolTip>)>,
@@ -850,6 +804,7 @@ pub fn update_cursor(
     server: Res<AssetServer>,
     mut insight_bar: Query<(Entity, &mut Transform, &mut InsightBar)>,
     mut insight_bar_border: Query<Entity, With<InsightBarBorder>>,
+    insight_sfx: Query<Entity, With<InsightChargeSfx>>,
 ) {
     let window = windows.single();
     let Ok((entity, mut style)) = cursor.get_single_mut() else {
@@ -864,8 +819,8 @@ pub fn update_cursor(
         style.left = Val::Px(left);
         style.top = Val::Px(top);
 
-        tool_tip_style.left = Val::Px(left);
-        tool_tip_style.top = Val::Px(top);
+        tool_tip_style.left = Val::Px(left - 25.);
+        tool_tip_style.top = Val::Px(top + 30.);
 
         // println!("{top:?}");
         if top < -350. && !selected_character.is_empty() {
@@ -909,11 +864,14 @@ pub fn update_cursor(
                                     HIGH_RES_LAYER,
                                 ));
                                 let sfx_path = "audio/sci-fi-sound-effect-designed-circuits-sfx-tonal-15-202059.mp3";
-                                commands.spawn(AudioBundle {
-                                    source: server.load(sfx_path),
-                                    settings: PlaybackSettings::default()
-                                        .with_volume(Volume::new(0.4)),
-                                });
+                                commands.spawn((
+                                    AudioBundle {
+                                        source: server.load(sfx_path),
+                                        settings: PlaybackSettings::default()
+                                            .with_volume(Volume::new(0.4)),
+                                    },
+                                    InsightChargeSfx,
+                                ));
                             }
 
                             insight.is_held = true;
@@ -927,10 +885,16 @@ pub fn update_cursor(
                                 commands.entity(entity).despawn();
                             }
                             insight.grace.reset();
+                            for sfx in insight_sfx.iter() {
+                                commands.entity(sfx).despawn();
+                            }
                         }
                     }
 
                     insight.grace.reset();
+                    for sfx in insight_sfx.iter() {
+                        commands.entity(sfx).despawn();
+                    }
                 }
             }
 
@@ -944,6 +908,9 @@ pub fn update_cursor(
                     commands.entity(entity).despawn();
                 }
                 insight.grace.reset();
+                for sfx in insight_sfx.iter() {
+                    commands.entity(sfx).despawn();
+                }
             }
 
             if insight.character.as_ref() != selected_character.iter().next().map(|s| &s.1 .0) {
@@ -963,6 +930,9 @@ pub fn update_cursor(
             }
             insight.is_held = false;
             insight.grace.reset();
+            for sfx in insight_sfx.iter() {
+                commands.entity(sfx).despawn();
+            }
 
             *visibility = Visibility::Hidden;
         }
@@ -971,6 +941,9 @@ pub fn update_cursor(
 
 #[derive(Resource)]
 struct SpawnInsight(SystemId);
+
+#[derive(Resource)]
+pub struct DespawnInsight(pub SystemId);
 
 fn aquire_insight(
     mut reader: EventReader<AquireInsight>,
@@ -1001,7 +974,13 @@ fn aquire_insight(
 }
 
 #[derive(Component)]
-struct InsightNode;
+pub struct InsightNode;
+
+pub fn despawn_insight(mut commands: Commands, nodes: Query<Entity, With<InsightNode>>) {
+    for node in nodes.iter() {
+        commands.entity(node).despawn();
+    }
+}
 
 pub fn spawn_insight(
     mut commands: Commands,
@@ -1527,6 +1506,12 @@ fn should_show_selection_ui(
     }
 }
 
+#[derive(Component)]
+enum DecisionBox {
+    Yes,
+    No,
+}
+
 fn selection_ui(
     mut commands: Commands,
     server: Res<AssetServer>,
@@ -1537,15 +1522,153 @@ fn selection_ui(
     // mut text_query: Query<&mut Text>,
     mut writer: EventWriter<Decision>,
     // show: Option<Res<ShowSelectionUi>>,
-    mut root_ui: Query<&mut Visibility, With<DecisionUi>>,
+    // mut root_ui: Query<&mut Visibility, With<DecisionUi>>,
     selected_character: Query<&SelectedCharacter, With<ShowSelectionUi>>,
+    mut decision_boxes: Query<(&DecisionBox, &mut TextureAtlas)>,
+    mut decision_box_entities: Query<Entity, With<DecisionBox>>,
+    mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
+    mut tool_tip: Query<
+        (Entity, &mut Style, &mut Visibility),
+        (With<InsightToolTip>, Without<Cursor>),
+    >,
+    windows: Query<&Window>,
+    mut input: EventReader<MouseButtonInput>,
 ) {
     let Ok(selected_character) = selected_character.get_single() else {
+        for entity in decision_box_entities.iter() {
+            commands.entity(entity).despawn();
+        }
+
         return;
     };
 
-    let mut vis = root_ui.single_mut();
-    *vis = Visibility::Visible;
+    let window = windows.single();
+
+    let (tool_tip_entity, mut tool_tip_style, mut visibility) = tool_tip.single_mut();
+
+    if decision_boxes.is_empty() {
+        let layout = TextureAtlasLayout::from_grid(UVec2::new(240, 135), 2, 1, None, None);
+        let texture_atlas_layout = texture_atlas_layouts.add(layout);
+        commands.spawn((
+            SpriteBundle {
+                texture: server.load("ui/menu_box.png"),
+                transform: Transform::from_xyz(-75., 40., 400.),
+                ..Default::default()
+            },
+            TextureAtlas {
+                layout: texture_atlas_layout.clone(),
+                index: 0,
+            },
+            DecisionBox::No,
+        ));
+        commands.spawn((
+            SpriteBundle {
+                texture: server.load("ui/menu_box.png"),
+                transform: Transform::from_xyz(75., 40., 400.),
+                ..Default::default()
+            },
+            TextureAtlas {
+                layout: texture_atlas_layout.clone(),
+                index: 0,
+            },
+            DecisionBox::Yes,
+        ));
+        commands.spawn((
+            DecisionBox::No,
+            TextBundle::from_section(
+                "I Do Not Concur",
+                TextStyle {
+                    font_size: 70.0,
+                    font: server.load(FONT_PATH),
+                    ..Default::default()
+                },
+            )
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(180.),
+                left: Val::Px(140.),
+                ..Default::default()
+            })
+            .with_text_justify(JustifyText::Center),
+        ));
+        commands.spawn((
+            DecisionBox::Yes,
+            TextBundle::from_section(
+                "I Concur",
+                TextStyle {
+                    font_size: 70.0,
+                    font: server.load(FONT_PATH),
+                    ..Default::default()
+                },
+            )
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                top: Val::Px(180.),
+                left: Val::Percent(76.),
+                ..Default::default()
+            })
+            .with_text_justify(JustifyText::Center),
+        ));
+    }
+
+    if let Some(mouse) = window.cursor_position() {
+        let did_click = input
+            .read()
+            .any(|i| i.state == ButtonState::Pressed && i.button == MouseButton::Left);
+
+        let click_sfx = "/home/shane/dev/kingdom/assets/audio/stamp-102627.mp3";
+
+        if mouse.x > 128. && mouse.x < 591. && mouse.y > 141. && mouse.y < 290. {
+            if did_click {
+                commands.spawn(AudioBundle {
+                    source: server.load(click_sfx),
+                    settings: PlaybackSettings::default()
+                        .with_volume(Volume::new(0.5))
+                        .with_speed(1.8),
+                });
+                writer.send(Decision::No(selected_character.0.clone()));
+            }
+
+            *visibility = Visibility::Hidden;
+
+            for (box_ty, mut atlas) in decision_boxes.iter_mut() {
+                match box_ty {
+                    DecisionBox::No => {
+                        atlas.index = 1;
+                    }
+                    _ => {}
+                }
+            }
+        } else if mouse.x > 1330. && mouse.x < 1791. && mouse.y > 142. && mouse.y < 290. {
+            if did_click {
+                commands.spawn(AudioBundle {
+                    source: server.load(click_sfx),
+                    settings: PlaybackSettings::default()
+                        .with_volume(Volume::new(0.5))
+                        .with_speed(1.8),
+                });
+                writer.send(Decision::Yes(selected_character.0.clone()));
+            }
+
+            *visibility = Visibility::Hidden;
+
+            for (box_ty, mut atlas) in decision_boxes.iter_mut() {
+                match box_ty {
+                    DecisionBox::Yes => {
+                        atlas.index = 1;
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            for (_, mut atlas) in decision_boxes.iter_mut() {
+                atlas.index = 0;
+            }
+        }
+    }
+
+    // let mut vis = root_ui.single_mut();
+    // *vis = Visibility::Visible;
 
     for (interaction, mut color, decision) in &mut interaction_query {
         match *interaction {
@@ -1560,34 +1683,11 @@ fn selection_ui(
                 // } else {
                 //     0.
                 // };
-                commands.spawn(AudioBundle {
-                    source: server.load(
-                        "audio/retro/GameSFX/Weapon/reload/Retro Weapon Reload Best A 03.wav",
-                    ),
-                    settings: PlaybackSettings::default()
-                        .with_volume(Volume::new(0.5))
-                        .with_speed(1.8 - 0.),
-                });
-
-                match decision {
-                    DecisionType::Yes => {
-                        writer.send(Decision::Yes(selected_character.0.clone()));
-                    }
-                    DecisionType::No => {
-                        writer.send(Decision::No(selected_character.0.clone()));
-                    }
-                }
             }
             Interaction::Hovered => {
-                // text.sections[0].value = "Hover".to_string();
-                *color = HOVERED_BUTTON.into();
-                // border_color.0 = Color::WHITE;
+                println!("hovered");
             }
-            Interaction::None => {
-                // text.sections[0].value = "I concur.".to_string();
-                *color = NORMAL_BUTTON.into();
-                // border_color.0 = Color::BLACK;
-            }
+            Interaction::None => {}
         }
     }
 }

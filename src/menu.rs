@@ -35,7 +35,7 @@ pub fn setup_cursor(
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     let window = &mut primary_window.single_mut();
-    // window.cursor.visible = false;
+    window.cursor.visible = false;
 
     commands
         .ui_builder(UiRoot)
