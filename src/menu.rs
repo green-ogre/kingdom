@@ -1,16 +1,12 @@
-use std::time::Duration;
-
 use crate::{
-    pixel_perfect::{OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER},
-    type_writer::{self, TypeWriter},
-    ui::{handle_morning, set_world_to_black, Cursor, Insight, InsightToolTip, UiNode},
-    GameState, TimeState,
+    pixel_perfect::HIGH_RES_LAYER,
+    type_writer::TypeWriter,
+    ui::{Cursor, InsightToolTip, UiNode},
+    GameState,
 };
 use bevy::{
     audio::{PlaybackMode, Volume},
-    ecs::world,
     input::{keyboard::KeyboardInput, ButtonState},
-    math::VectorSpace,
     prelude::*,
     render::view::RenderLayers,
     ui::ContentSize,
@@ -18,6 +14,7 @@ use bevy::{
 };
 use bevy_hanabi::prelude::*;
 use sickle_ui::{prelude::*, ui_commands::UpdateStatesExt};
+use std::time::Duration;
 
 pub const FONT_PATH: &str = "ui/alagard.ttf";
 

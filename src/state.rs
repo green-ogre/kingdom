@@ -1,15 +1,14 @@
 use crate::{
-    character::{Character, Characters, Request, SelectedCharacter},
-    ui::{Decision, DecisionType},
-    CharacterSet, GameState, TimeState,
+    character::{Character, Characters, Request},
+    ui::decision::{Decision, DecisionType},
+    CharacterSet, GameState,
 };
 use bevy::prelude::*;
+pub use handlers::initialize_filters;
 use serde::Deserialize;
 use sickle_ui::ui_commands::UpdateStatesExt;
 
 mod handlers;
-
-pub use handlers::initialize_filters;
 
 pub struct StatePlugin;
 
@@ -21,9 +20,7 @@ impl Plugin for StatePlugin {
                 wealth: 100.,
                 ..Default::default()
             })
-            .add_event::<Decision>()
             .add_event::<NewHeartSize>()
-            .add_event::<EndDay>()
             .add_systems(
                 PostUpdate,
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
@@ -44,9 +41,6 @@ pub struct KingdomState {
     pub last_decision: Option<DecisionType>,
     pub day: usize,
 }
-
-#[derive(Event)]
-pub struct EndDay;
 
 #[derive(Debug, Deserialize, Default, Asset, Resource, Reflect, Clone)]
 #[serde(default)]
@@ -70,7 +64,7 @@ impl KingdomState {
         };
 
         self.last_decision = Some(decision);
-        self.heart_size += result.heart_size;
+        self.heart_size += result.heart_size * 10.;
         self.happiness += result.happiness;
 
         if let Some(insight) = result.can_use_insight {

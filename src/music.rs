@@ -1,4 +1,4 @@
-use crate::{GameState, TimeState};
+use crate::{time_state::TimeState, GameState};
 use bevy::{
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,

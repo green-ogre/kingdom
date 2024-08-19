@@ -1,9 +1,9 @@
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
-use crate::ui::{handle_morning, set_world_to_black, ActiveMask, DespawnInsight};
+use crate::time_state::TimeState;
+use crate::ui::insight::DespawnInsight;
+use crate::ui::ActiveMask;
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
-use crate::{type_writer, CharacterSet, GameState, TimeState};
-use bevy::audio::Volume;
-use bevy::math::VectorSpace;
+use crate::{CharacterSet, GameState};
 use bevy::{
     ecs::system::SystemId,
     input::{keyboard::KeyboardInput, ButtonState},
@@ -50,15 +50,18 @@ impl Plugin for CharacterPlugin {
 }
 
 fn enter_morning(mut commands: Commands, server: Res<AssetServer>) {
-    // commands.next_state(TimeState::Morning);
-    let id = commands.register_one_shot_system(set_world_to_black);
-    commands.run_system(id);
-    commands.spawn(AudioBundle {
-        source: server.load("audio/church_bells.wav"),
-        settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
-    });
-    let id = commands.register_one_shot_system(handle_morning);
-    commands.run_system(id);
+    commands.next_state(TimeState::Day);
+
+    // NORMAL STARTUP
+    //
+    // let id = commands.register_one_shot_system(set_world_to_black);
+    // commands.run_system(id);
+    // commands.spawn(AudioBundle {
+    //     source: server.load("audio/church_bells.wav"),
+    //     settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+    // });
+    // let id = commands.register_one_shot_system(handle_morning);
+    // commands.run_system(id);
 }
 
 #[derive(AssetCollection, Resource)]
