@@ -1,11 +1,13 @@
 use crate::{
     pixel_perfect::{OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER},
+    type_writer::{self, TypeWriter},
     ui::{Cursor, Insight, InsightToolTip, UiNode},
     GameState,
 };
 use bevy::{
     audio::{PlaybackMode, Volume},
     ecs::world,
+    input::{keyboard::KeyboardInput, ButtonState},
     math::VectorSpace,
     prelude::*,
     render::view::RenderLayers,
@@ -24,7 +26,7 @@ impl Plugin for MainMenuPlugin {
         app.add_systems(OnEnter(GameState::MainMenu), (setup_effect, setup))
             .add_systems(
                 Update,
-                (parallax_sprites, update_menu).run_if(in_state(GameState::MainMenu)),
+                (parallax_sprites, update_text).run_if(in_state(GameState::MainMenu)),
             )
             .add_systems(Update, crate::ui::update_cursor)
             .add_plugins(HanabiPlugin);
@@ -108,15 +110,39 @@ pub fn setup_cursor(
         .justify_content(JustifyContent::End);
 }
 
-fn setup(mut commands: Commands, server: Res<AssetServer>) {
-    // commands.spawn(AudioBundle {
-    //     source: server.load("audio/wind.mp3"),
-    //     settings: PlaybackSettings {
-    //         mode: PlaybackMode::Loop,
-    //         volume: Volume::new(1.),
-    //         ..Default::default()
-    //     },
-    // });
+fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResMut<TypeWriter>) {
+    commands.spawn(AudioBundle {
+        source: server.load("audio/birds-19624.mp3"),
+        settings: PlaybackSettings {
+            mode: PlaybackMode::Loop,
+            volume: Volume::new(0.5),
+            ..Default::default()
+        },
+    });
+
+    commands.spawn((
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font: server.load(FONT_PATH),
+                font_size: 49.,
+                ..default()
+            },
+        )
+        .with_text_justify(JustifyText::Left)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            left: Val::Px(472.),
+            top: Val::Px(702.7),
+            max_width: Val::Px(980.7),
+            ..Default::default()
+        }),
+        Name::new("Character Text"),
+        UiNode,
+    ));
+
+    let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
+    *type_writer = TypeWriter::new("This is some cool text isn't it?".into(), 0.035, sfx);
 
     commands.spawn((
         SpriteBundle {
@@ -148,43 +174,6 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
         HIGH_RES_LAYER,
     ));
 }
-
-#[derive(Component)]
-struct StartGameButton;
-
-fn update_menu(
-    windows: Query<&Window>,
-    start_game_button: Query<&Children, With<StartGameButton>>,
-    mut button_children: Query<&mut Transform>,
-    q_camera: Query<(&Camera, &GlobalTransform), With<OuterCamera>>,
-) {
-    let (camera, camera_transform) = q_camera.single();
-    let window = windows.single();
-
-    if let Some(world_position) = window
-        .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
-        .map(|ray| ray.origin.truncate())
-    {
-        for children in start_game_button.iter() {
-            for child in children.iter() {
-                let mut transform = button_children.get_mut(*child).unwrap();
-                if world_position.x > transform.translation.x - 20.
-                    && world_position.x < transform.translation.x + 20.
-                    && world_position.y > transform.translation.y - 10.
-                    && world_position.y < transform.translation.y + 10.
-                {
-                    transform.scale = Vec3::splat(1.2);
-                } else {
-                    transform.scale = Vec3::splat(1.0);
-                }
-            }
-        }
-    }
-}
-
-#[derive(Component)]
-struct MainMenuNode;
 
 fn parallax_sprites(
     windows: Query<&Window>,
@@ -286,4 +275,29 @@ fn setup_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>
         RenderLayers::layer(2),
         MainMenuParticles,
     ));
+}
+
+#[derive(Component)]
+struct IntroText;
+
+fn update_text(
+    mut commands: Commands,
+    mut intro_text: Query<&mut Text, With<IntroText>>,
+    mut type_writer: ResMut<TypeWriter>,
+    mut reader: EventReader<KeyboardInput>,
+    time: Res<Time>,
+) {
+    type_writer.increment(&time);
+    type_writer.try_play_sound(&mut commands);
+
+    for input in reader.read() {
+        if matches!(input, KeyboardInput { key_code,  state, .. } if *key_code == KeyCode::Space && *state == ButtonState::Pressed)
+        {
+            type_writer.finish();
+        }
+    }
+
+    let mut text = intro_text.single_mut();
+    // text.sections[0].style.color.set_alpha(1.);
+    text.sections[0].value = type_writer.slice_with_line_wrap().into();
 }
