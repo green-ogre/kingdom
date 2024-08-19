@@ -159,7 +159,7 @@ fn enter_morning(
     commands.insert_resource(FadeToBlack::new(0.5, 10, 0., system));
     commands.spawn(AudioBundle {
         source: server.load("audio/church_bells.wav"),
-        settings: PlaybackSettings::default().with_volume(Volume::new(0.5)),
+        settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
     });
     // music.send(MusicEvent::FadeOutSecs(5.));
 }
@@ -1005,7 +1005,10 @@ pub fn spawn_insight(
 
     commands.spawn(AudioBundle {
         source: server.load("audio/heartbeat.wav"),
-        settings: PlaybackSettings::default(),
+        settings: PlaybackSettings {
+            mode: PlaybackMode::Despawn,
+            ..Default::default()
+        },
     });
 
     commands.spawn((
@@ -1380,7 +1383,7 @@ fn heart_ui(
 
         commands.spawn(AudioBundle {
             source: server.load("audio/heartbeat.wav"),
-            settings: PlaybackSettings::default(),
+            settings: PlaybackSettings::DESPAWN,
         });
 
         let pulse = Tween::new(

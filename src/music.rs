@@ -1,8 +1,7 @@
-use crate::{state::EndDay, GameState, TimeState};
+use crate::{GameState, TimeState};
 use bevy::{
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
-    time::time_system,
 };
 use bevy_kira_audio::prelude::*;
 
@@ -22,8 +21,11 @@ const MUSIC_VOL: f64 = 0.333;
 pub fn play_final_stinger(commands: &mut Commands, assets: &AssetServer) {
     commands.spawn(AudioBundle {
         source: assets.load("audio/game-complete.wav"),
-        settings: PlaybackSettings::default()
-            .with_volume(bevy::audio::Volume::new(MUSIC_VOL as f32 * 0.75)),
+        settings: PlaybackSettings {
+            mode: bevy::audio::PlaybackMode::Despawn,
+            ..Default::default()
+        }
+        .with_volume(bevy::audio::Volume::new(MUSIC_VOL as f32 * 0.75)),
     });
 }
 
