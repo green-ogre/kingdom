@@ -1,7 +1,9 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
 use crate::character::{self, Character, CharacterUi, Characters, SelectedCharacter};
 use crate::music::MusicEvent;
-use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH};
+use crate::pixel_perfect::{
+    InGameCamera, OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH,
+};
 use crate::state::{EndDay, KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
 use bevy::audio::PlaybackMode;
@@ -140,7 +142,7 @@ fn show_night(
     commands.insert_resource(FadeFromBlack::new(0.5, 10, 3., system));
 }
 
-fn handle_night(mut commands: Commands) {
+fn handle_night(mut commands: Commands, camera: Query<Entity, With<InGameCamera>>) {
     info!("entered night");
     commands.next_state(GameState::Morning);
     info!("exiting!")
@@ -215,17 +217,19 @@ fn handle_morning(
     let system = commands.register_one_shot_system(enter_day);
     commands.insert_resource(FadeFromBlack::new(0.5, 4, 3., system));
     day_number_ui.0 = None;
-
-    let (mut vis, _) = next_day_ui.single_mut();
-    *vis = Visibility::Hidden;
 }
 
 fn enter_day(
     mut commands: Commands,
     characters: Res<Characters>,
     mut music: EventWriter<MusicEvent>,
+    mut next_day_ui: Query<(&mut Visibility, &mut Text), With<NextDayUi>>,
 ) {
     info!("enter day");
+
+    let (mut vis, _) = next_day_ui.single_mut();
+    *vis = Visibility::Hidden;
+
     commands.run_system(characters.choose_new_character);
     commands.next_state(GameState::Day);
     music.send(MusicEvent::Play);

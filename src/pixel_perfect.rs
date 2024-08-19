@@ -40,7 +40,7 @@ struct Canvas;
 
 /// Camera that renders the pixel-perfect world to the [`Canvas`].
 #[derive(Component)]
-struct InGameCamera;
+pub struct InGameCamera;
 
 /// Camera that renders the [`Canvas`] (and other graphics on [`HIGH_RES_LAYERS`]) to the screen.
 #[derive(Component)]
