@@ -36,25 +36,28 @@ fn test_music(
     mut event_writer: EventWriter<MusicEvent>,
     mut end_day: EventWriter<EndDay>,
 ) {
-    for event in key.read() {
-        if event.key_code == KeyCode::KeyJ {
-            event_writer.send(MusicEvent::Play);
-        }
+    #[cfg(debug_assertions)]
+    {
+        for event in key.read() {
+            if event.key_code == KeyCode::KeyJ {
+                event_writer.send(MusicEvent::Play);
+            }
 
-        if event.key_code == KeyCode::KeyK {
-            event_writer.send(MusicEvent::Pause);
-        }
+            if event.key_code == KeyCode::KeyK {
+                event_writer.send(MusicEvent::Pause);
+            }
 
-        if event.key_code == KeyCode::KeyL {
-            event_writer.send(MusicEvent::FadeOutSecs(5.));
-        }
+            if event.key_code == KeyCode::KeyL {
+                event_writer.send(MusicEvent::FadeOutSecs(5.));
+            }
 
-        if event.key_code == KeyCode::Semicolon {
-            event_writer.send(MusicEvent::FadeInSecs(5.));
-        }
+            if event.key_code == KeyCode::Semicolon {
+                event_writer.send(MusicEvent::FadeInSecs(5.));
+            }
 
-        if event.key_code == KeyCode::Quote {
-            end_day.send(EndDay);
+            if event.key_code == KeyCode::Quote {
+                end_day.send(EndDay);
+            }
         }
     }
 }
