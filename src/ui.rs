@@ -118,7 +118,7 @@ fn end_day_and_enter_next(
 
     for _ in finish_fade_from_black.read() {
         commands.run_system(characters.choose_new_character);
-        music.send(MusicEvent::Play);
+        music.send(MusicEvent::Play(crate::music::MusicKind::Day));
     }
 }
 

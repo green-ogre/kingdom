@@ -1,5 +1,8 @@
 use crate::{state::EndDay, GameState};
-use bevy::{input::keyboard::KeyboardInput, prelude::*};
+use bevy::{
+    input::{keyboard::KeyboardInput, ButtonState},
+    prelude::*,
+};
 use bevy_kira_audio::prelude::*;
 
 pub struct MusicPlugin;
@@ -13,34 +16,58 @@ impl Plugin for MusicPlugin {
     }
 }
 
+const MUSIC_VOL: f64 = 0.333;
+
+pub fn play_final_stinger(commands: &mut Commands, assets: &AssetServer) {
+    commands.spawn(AudioBundle {
+        source: assets.load("audio/game-complete.wav"),
+        settings: PlaybackSettings::default()
+            .with_volume(bevy::audio::Volume::new(MUSIC_VOL as f32 * 0.75)),
+    });
+}
+
 #[derive(Resource, Reflect, Default)]
 struct Music {
     playing: bool,
     position: f64,
+    kind: MusicKind,
+}
+
+#[derive(Debug, PartialEq, Reflect, Default)]
+pub enum MusicKind {
+    #[default]
+    Day,
+    Dream,
 }
 
 #[derive(Debug, Event, PartialEq)]
 pub enum MusicEvent {
-    Play,
+    Play(MusicKind),
     Pause,
     FadeOutSecs(f32),
-    FadeInSecs(f32),
+    FadeInSecs(MusicKind, f32),
 }
 
 fn start_music(mut event_writer: EventWriter<MusicEvent>) {
-    event_writer.send(MusicEvent::Play);
+    event_writer.send(MusicEvent::Play(MusicKind::Day));
 }
 
 fn test_music(
     mut key: EventReader<KeyboardInput>,
     mut event_writer: EventWriter<MusicEvent>,
     mut end_day: EventWriter<EndDay>,
+    mut commands: Commands,
+    server: Res<AssetServer>,
 ) {
     #[cfg(debug_assertions)]
     {
         for event in key.read() {
+            if event.state == ButtonState::Released {
+                continue;
+            }
+
             if event.key_code == KeyCode::KeyJ {
-                event_writer.send(MusicEvent::Play);
+                event_writer.send(MusicEvent::Play(MusicKind::Dream));
             }
 
             if event.key_code == KeyCode::KeyK {
@@ -52,11 +79,15 @@ fn test_music(
             }
 
             if event.key_code == KeyCode::Semicolon {
-                event_writer.send(MusicEvent::FadeInSecs(5.));
+                event_writer.send(MusicEvent::Play(MusicKind::Day));
             }
 
             if event.key_code == KeyCode::Quote {
                 end_day.send(EndDay);
+            }
+
+            if event.key_code == KeyCode::Comma {
+                play_final_stinger(&mut commands, &server);
             }
         }
     }
@@ -69,10 +100,10 @@ fn handle_music_playback(
     time: Res<Time>,
     mut event_reader: EventReader<MusicEvent>,
 ) {
-    let volume = 0.333;
     let loop_start: f64 = 6.15;
     let loop_end: f64 = 60. + 27.592;
-    let path = "audio/court-day.wav";
+    let day_path = "audio/court-day.wav";
+    let dream_path = "audio/court-dream.wav";
     let start_tween = AudioTween::new(
         std::time::Duration::from_millis(100),
         AudioEasing::InPowi(2),
@@ -81,24 +112,53 @@ fn handle_music_playback(
     if !music.playing {
         let last = event_reader
             .read()
-            .filter(|e| matches!(e, MusicEvent::FadeInSecs(_) | MusicEvent::Play))
+            .filter(|e| matches!(e, MusicEvent::FadeInSecs(_, _) | MusicEvent::Play(_)))
             .last();
 
         match last {
-            Some(MusicEvent::Play) => {
+            Some(MusicEvent::Play(MusicKind::Day)) => {
                 music.playing = true;
+                music.kind = MusicKind::Day;
                 audio
-                    .play(assets.load(path))
-                    .with_volume(volume)
+                    .play(assets.load(day_path))
+                    .with_volume(MUSIC_VOL)
                     .start_from(music.position)
-                    .fade_in(start_tween);
+                    .fade_in(AudioTween::new(
+                        std::time::Duration::from_millis(50),
+                        AudioEasing::OutPowi(2),
+                    ));
             }
-            Some(MusicEvent::FadeInSecs(s)) => {
+            Some(MusicEvent::FadeInSecs(MusicKind::Day, s)) => {
                 music.playing = true;
+                music.kind = MusicKind::Day;
                 audio
-                    .play(assets.load(path))
-                    .with_volume(volume)
+                    .play(assets.load(day_path))
+                    .with_volume(MUSIC_VOL)
                     .start_from(music.position)
+                    .fade_in(AudioTween::new(
+                        std::time::Duration::from_secs_f32(*s),
+                        AudioEasing::OutPowi(2),
+                    ));
+            }
+            Some(MusicEvent::Play(MusicKind::Dream)) => {
+                music.playing = true;
+                music.kind = MusicKind::Dream;
+                audio
+                    .play(assets.load(dream_path))
+                    .with_volume(MUSIC_VOL)
+                    .looped()
+                    .fade_in(AudioTween::new(
+                        std::time::Duration::from_millis(750),
+                        AudioEasing::OutPowi(2),
+                    ));
+            }
+            Some(MusicEvent::FadeInSecs(MusicKind::Dream, s)) => {
+                music.playing = true;
+                music.kind = MusicKind::Dream;
+                audio
+                    .play(assets.load(dream_path))
+                    .with_volume(MUSIC_VOL)
+                    .looped()
                     .fade_in(AudioTween::new(
                         std::time::Duration::from_secs_f32(*s),
                         AudioEasing::OutPowi(2),
@@ -107,11 +167,15 @@ fn handle_music_playback(
             _ => {}
         }
     } else {
-        music.position += time.delta_seconds_f64();
+        if music.kind == MusicKind::Day {
+            music.position += time.delta_seconds_f64();
+        } else {
+            music.position = 0.;
+        }
 
         let last_event = event_reader
             .read()
-            .filter(|e| **e != MusicEvent::Play)
+            .filter(|e| !matches!(e, MusicEvent::Play(_) | MusicEvent::FadeInSecs(_, _)))
             .last();
 
         match last_event {
@@ -135,10 +199,10 @@ fn handle_music_playback(
             _ => {}
         }
 
-        if music.position >= loop_end {
+        if music.position >= loop_end && music.kind == MusicKind::Day {
             audio
-                .play(assets.load(path))
-                .with_volume(volume)
+                .play(assets.load(day_path))
+                .with_volume(MUSIC_VOL)
                 .start_from(loop_start)
                 .fade_in(start_tween);
 
