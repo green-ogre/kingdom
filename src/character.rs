@@ -118,24 +118,36 @@ fn choose_new_character(
     state: Res<KingdomState>,
     sprites: Query<&Transform, With<CharacterSprite>>,
     mut selected_character: Query<(Entity, &mut SelectedCharacter)>,
+    time_state: Res<State<TimeState>>,
 ) {
     let mut rng = thread_rng();
-    let (new_character, new_handle, (request_index, request)) = characters
-        .table
-        .iter()
-        // filter out characters whose requests have all been heard
-        .filter_map(|(key, handle)| {
-            if *key == characters.current_key {
-                return None;
-            }
 
-            let character = character_assets.get(handle).unwrap();
+    let (new_character, new_handle, (request_index, request)) =
+        if *time_state.get() != TimeState::Night {
+            characters
+                .table
+                .iter()
+                // filter out characters whose requests have all been heard
+                .filter_map(|(key, handle)| {
+                    if *key == characters.current_key && *time_state.get() != TimeState::Night {
+                        return None;
+                    }
+
+                    let character = character_assets.get(handle).unwrap();
+                    character
+                        .sample_requests(state.day, &mut rng)
+                        .map(|r| (*key, handle.clone(), r))
+                })
+                .choose(&mut thread_rng())
+                .expect("Do something when all options are exhausted")
+        } else {
+            let handle = characters.table["dream-man"].clone();
+            let character = character_assets.get(&handle).unwrap();
             character
                 .sample_requests(state.day, &mut rng)
-                .map(|r| (*key, handle.clone(), r))
-        })
-        .choose(&mut thread_rng())
-        .expect("Do something when all options are exhausted");
+                .map(|r| ("dream-man", handle.clone(), r))
+                .expect("Do something when all options are exhausted")
+        };
 
     info!("selecting new character: {:?}", new_character);
     characters.current_key = new_character;

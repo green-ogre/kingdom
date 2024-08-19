@@ -1,5 +1,4 @@
 use std::time::Duration;
-
 use super::KingdomState;
 use crate::{
     character::{Character, Characters, SelectedCharacter, SelectedCharacterSprite},
@@ -19,6 +18,7 @@ impl Plugin for HandlerPlugin {
         app.insert_resource(SmithyState::default())
             .insert_resource(NunState::default())
             .insert_resource(PrinceState::default())
+            .insert_resource(DreamState::default())
             .add_systems(Startup, (ResponseHandlers::insert, Filters::insert));
     }
 }
@@ -61,7 +61,14 @@ handler_map! {
     nun_paganism,
     prince_festival_handler,
     prince_disabled_handler,
-    dream_transition_to_day
+    dream_transition_to_day,
+    dream_summon,
+    present_hand,
+    conditional_succ,
+    succ,
+    set_cardiac_dream,
+    set_no_choice,
+    set_this_gift
 }
 
 #[derive(Debug, Default, Resource)]
@@ -150,13 +157,73 @@ fn dream_transition_to_day(
     }
 }
 
+/////////////////////////////
+// DREAM
+/////////////////////////////
+
+macro_rules! set_flag {
+    ($name:ident, $ty:ident, $flag:ident) => {
+        fn $name(state: Res<KingdomState>, mut item: ResMut<$ty>) {
+            match state.last_decision {
+                Some(DecisionType::Yes) => {
+                    item.$flag = Some(true);
+                }
+                Some(DecisionType::No) => {
+                    item.$flag = Some(false);
+                }
+                _ => {}
+            }
+        }
+    };
+}
+
+#[derive(Debug, Default, Resource)]
+pub struct DreamState {
+    said_summoned: Option<bool>,
+    presented_hand: Option<bool>,
+    cardiac_dream: bool,
+    no_choice: bool,
+    this_gift: bool,
+}
+
+set_flag!(dream_summon, DreamState, said_summoned);
+set_flag!(present_hand, DreamState, presented_hand);
+// set_flag!(present_hand, DreamState, presented_hand);
+// set_flag!(present_hand, DreamState, presented_hand);
+
+fn conditional_succ(state: Res<KingdomState>, mut prince: ResMut<DreamState>) {
+    warn!("Do succing");
+}
+
+fn succ(state: Res<KingdomState>, mut prince: ResMut<DreamState>) {
+    warn!("Do succing");
+}
+
+fn set_cardiac_dream(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    dream.cardiac_dream = true;
+}
+
+fn set_no_choice(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    dream.no_choice = true;
+}
+
+fn set_this_gift(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    dream.this_gift = true;
+}
+
 handler_map! {
     /// Request filters.
     ///
     /// These can be used in requests to arbitrarily enable or disabled them.
     Filters,
     prince_festival,
-    princess_disabled_filter
+    princess_disabled_filter,
+    summon_no,
+    summon_yes,
+    presented,
+    cardiac_dream,
+    no_choice,
+    this_gift
 }
 
 impl Filters {
@@ -183,6 +250,22 @@ impl Filters {
             }
         }
     }
+}
+
+macro_rules! filter_by {
+    ($name:ident, $key:literal, $ty:ident, |$chara:ident, $state:ident| $cond:expr) => {
+        fn $name(
+            mut character_assets: ResMut<Assets<Character>>,
+            character_data: Res<Characters>,
+            $state: Res<$ty>,
+        ) {
+            let Some($chara) = character_assets.get_mut(&character_data.table[$key]) else {
+                return;
+            };
+
+            $cond
+        }
+    };
 }
 
 pub fn initialize_filters(
@@ -233,3 +316,28 @@ pub fn princess_disabled_filter(
 
     princess.requests[0][1].availability.filtered = none_or_false(prince.housed_disabled);
 }
+
+filter_by!(summon_no, "dream-man", DreamState, |ch, state| {
+    ch.requests[0][1].availability.filtered = none_or_true(state.said_summoned)
+});
+
+filter_by!(summon_yes, "dream-man", DreamState, |ch, state| {
+    ch.requests[0][2].availability.filtered = none_or_false(state.said_summoned)
+});
+
+filter_by!(presented, "dream-man", DreamState, |ch, state| {
+    // TODO: this isn't the right index
+    ch.requests[0][2].availability.filtered = none_or_true(state.presented_hand)
+});
+
+filter_by!(cardiac_dream, "dream-man", DreamState, |ch, state| {
+    ch.requests[0][3].availability.filtered = !state.cardiac_dream;
+});
+
+filter_by!(no_choice, "dream-man", DreamState, |ch, state| {
+    ch.requests[0][4].availability.filtered = !state.no_choice;
+});
+
+filter_by!(this_gift, "dream-man", DreamState, |ch, state| {
+    ch.requests[0][5].availability.filtered = !state.this_gift;
+});

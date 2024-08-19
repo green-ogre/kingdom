@@ -1,12 +1,40 @@
-name: Dream Man
+name: ???
 class: GreaterOne
-sprite_path: "characters/dream_man"
+sprite_path: characters/images/dream_man
 requests:
+  # day one
   - - text: |
-        ???
+        Your Majesty summoned me?
+      response_handlers: [dream_summon]
       yes:
-        heart_size: -10
-        happiness: -10
       no:
-        heart_size: 10
+    - text: |
+        Oh but He did! The kingdom balances on the edge of a knife. And so, I am here.
+      filter: summon_no
+      yes:
+      no:
+      response_handlers: [set_cardiac_dream]
+    # I require assistance
+    - text: |
+        Indeed you do.
+      filter: summon_yes
+      yes:
+      no:
+    - text: |
+        Your Majesty's cardiac affliction is rather crude work. How many men have been thus burdened, I wonder. No matter, we will use it to our advantage. Please, present You Grace's hand.
+      yes:
+      no:
+      filter: cardiac_dream
+      response_handlers: [present_hand, conditional_succ]
+    - text: |
+        Your Majesty has no choice in the matter. Forgive me, for it was Your Majesty who summoned me.
+      yes:
+      no:
+      filter: no_choice
+      response_handlers: [succ]
+    - text: |
+        Use this gift with great care.
+      yes:
+      no:
+      filter: this_gift
       response_handlers: [dream_transition_to_day]

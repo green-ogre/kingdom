@@ -114,7 +114,7 @@ fn update_state(
     system: Res<Characters>,
     response_handlers: Res<handlers::ResponseHandlers>,
     filters: Res<handlers::Filters>,
-    time_state: Res<State<TimeState>>,
+    // time_state: Res<State<TimeState>>,
 ) {
     if reader.is_empty() {
         return;
@@ -160,12 +160,13 @@ fn update_state(
         &mut commands,
     );
 
-    match time_state.get() {
-        TimeState::Day => {
-            commands.run_system(system.choose_new_character);
-        }
-        _ => {}
-    }
+    commands.run_system(system.choose_new_character);
+    // match time_state.get() {
+    //     TimeState::Day => {
+    //         commands.run_system(system.choose_new_character);
+    //     }
+    //     _ => {}
+    // }
 }
 
 fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<KingdomStateUi>>) {
