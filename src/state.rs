@@ -17,7 +17,7 @@ impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(handlers::HandlerPlugin)
             .insert_resource(KingdomState {
-                heart_size: 50.,
+                heart_size: 3.,
                 wealth: 100.,
                 ..Default::default()
             })
@@ -176,7 +176,7 @@ fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<Kingdo
 }
 
 fn check_heart_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
-    if state.heart_size < 10. || state.heart_size > 90. {
+    if state.heart_size <= 0. || state.heart_size >= 6. {
         commands.next_state(GameState::Loose);
     } else if state.wealth > 10000. {
         commands.next_state(GameState::Win);

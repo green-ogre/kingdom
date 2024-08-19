@@ -5,9 +5,9 @@ requests:
   - - text: |
         Your Majesty, our last harvest was bountiful beyond all expectation. Shall we raise quotas for this year's harvest?
       yes:
-        heart_size: -10
+        heart_size: -1
         happiness: -10
         last_word: Your Majesty is wise in all things.
       no:
-        heart_size: 10
+        heart_size: 1
         last_word: If it please Your Majesty.
