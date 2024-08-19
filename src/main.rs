@@ -45,7 +45,11 @@ fn main() {
             AudioPlugin,
             music::MusicPlugin,
         ))
+        .configure_sets(Update, CharacterSet.run_if(in_state(GameState::Main)))
+        .configure_sets(PreUpdate, CharacterSet.run_if(in_state(GameState::Main)))
+        .configure_sets(PostUpdate, CharacterSet.run_if(in_state(GameState::Main)))
         .init_state::<GameState>()
+        .init_state::<TimeState>()
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
                 .continue_to_state(GameState::Main)
@@ -53,9 +57,17 @@ fn main() {
         )
         .add_systems(Startup, menu::setup_cursor)
         .insert_resource(ClearColor(Color::BLACK))
-        .add_systems(OnEnter(GameState::Main), setup)
         .add_systems(Update, (close_on_escape, animated_sprites::animate_sprites))
         .run();
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
+enum TimeState {
+    Night,
+    Evening,
+    Morning,
+    #[default]
+    Day,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
@@ -64,12 +76,12 @@ enum GameState {
     AssetLoading,
     Main,
     MainMenu,
-    Night,
-    Day,
-    Morning,
     Loose,
     Win,
 }
+
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+struct CharacterSet;
 
 fn close_on_escape(mut input: EventReader<KeyboardInput>, mut writer: EventWriter<AppExit>) {
     for e in input.read() {
@@ -83,14 +95,4 @@ fn close_on_escape(mut input: EventReader<KeyboardInput>, mut writer: EventWrite
             writer.send(AppExit::Success);
         }
     }
-}
-
-fn setup(mut commands: Commands) {
-    // commands.spawn(Camera2dBundle {
-    //     camera: Camera {
-    //         clear_color: ClearColorConfig::Custom(Color::linear_rgba(0., 0., 0., 0.)),
-    //         ..Default::default()
-    //     },
-    //     ..Default::default()
-    // });
 }

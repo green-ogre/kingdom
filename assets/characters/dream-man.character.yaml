@@ -1,0 +1,12 @@
+name: Dream Man
+class: GreaterOne
+sprite_path: "characters/dream_man"
+requests:
+  - - text: |
+        ???
+      yes:
+        heart_size: -10
+        happiness: -10
+      no:
+        heart_size: 10
+      response_handlers: [dream_transition_to_day]

@@ -1,7 +1,7 @@
 use crate::{
     character::{Character, Characters, Request, SelectedCharacter},
     ui::{Decision, DecisionType},
-    GameState,
+    CharacterSet, GameState, TimeState,
 };
 use bevy::prelude::*;
 use serde::Deserialize;
@@ -28,8 +28,7 @@ impl Plugin for StatePlugin {
                 PostUpdate,
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
                 // this one so one-shot systems have a chance to actually be applied.
-                (state_ui, update_state, check_heart_end_conditions)
-                    .run_if(in_state(GameState::Day)),
+                (state_ui, update_state, check_heart_end_conditions).in_set(CharacterSet),
             );
     }
 }
@@ -115,6 +114,7 @@ fn update_state(
     system: Res<Characters>,
     response_handlers: Res<handlers::ResponseHandlers>,
     filters: Res<handlers::Filters>,
+    time_state: Res<State<TimeState>>,
 ) {
     if reader.is_empty() {
         return;
@@ -139,7 +139,10 @@ fn update_state(
 
             for handler in request.response_handlers.iter() {
                 match response_handlers.0.get(handler.as_str()) {
-                    Some(id) => commands.run_system(*id),
+                    Some(id) => {
+                        info!("running handler: {}", handler.as_str());
+                        commands.run_system(*id);
+                    }
                     None => {
                         warn!("Attempted to run non-existent handler '{handler}'");
                     }
@@ -156,7 +159,13 @@ fn update_state(
         system.table.values().filter_map(|v| characters.get(v)),
         &mut commands,
     );
-    commands.run_system(system.choose_new_character);
+
+    match time_state.get() {
+        TimeState::Day => {
+            commands.run_system(system.choose_new_character);
+        }
+        _ => {}
+    }
 }
 
 fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<KingdomStateUi>>) {

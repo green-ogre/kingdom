@@ -22,7 +22,7 @@ use sickle_ui::{prelude::*, SickleUiPlugin};
 use std::ops::Deref;
 use std::time::Duration;
 
-use crate::GameState;
+use crate::{CharacterSet, GameState, TimeState};
 
 const INSIGHT_CHARGE_TIME: f32 = 2.0;
 const CROWD_VOLUME: f32 = 0.025;
@@ -47,26 +47,19 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 Update,
-                (heart_ui, mask_ui, display_insight_tooltip, display_insight)
-                    .run_if(in_state(GameState::Day)),
+                (heart_ui, mask_ui, display_insight_tooltip, display_insight).in_set(CharacterSet),
             )
             .add_systems(
                 Update,
                 component_animator_system::<AudioSink>.in_set(AnimationSystem::AnimationUpdate),
             )
-            .add_systems(OnEnter(GameState::Night), enter_night)
+            .add_systems(OnEnter(TimeState::Evening), enter_night)
             .add_systems(Update, (fade_to_black, fade_from_black))
-            .add_systems(
-                PostUpdate,
-                (aquire_insight,).run_if(in_state(GameState::Day)),
-            )
-            .add_systems(
-                PreUpdate,
-                (should_show_selection_ui).run_if(in_state(GameState::Day)),
-            )
-            .add_systems(OnEnter(GameState::Morning), enter_morning)
+            .add_systems(PostUpdate, aquire_insight.in_set(CharacterSet))
+            .add_systems(PreUpdate, should_show_selection_ui.in_set(CharacterSet))
+            .add_systems(OnEnter(TimeState::Morning), enter_morning)
             .add_systems(FixedPreUpdate, (animate_clouds, animate_crowd))
-            .add_systems(Update, selection_ui.run_if(in_state(GameState::Day)))
+            .add_systems(Update, selection_ui.in_set(CharacterSet))
             .add_systems(OnEnter(GameState::Win), (set_world_to_black, end_animation))
             .add_systems(
                 OnEnter(GameState::Loose),
@@ -146,8 +139,7 @@ fn show_night(
 
 fn handle_night(mut commands: Commands, camera: Query<Entity, With<InGameCamera>>) {
     info!("entered night");
-    commands.next_state(GameState::Morning);
-    info!("exiting!")
+    commands.next_state(TimeState::Night);
 }
 
 #[derive(Resource, Default)]
@@ -240,7 +232,7 @@ fn enter_day(
     *vis = Visibility::Hidden;
 
     commands.run_system(characters.choose_new_character);
-    commands.next_state(GameState::Day);
+    commands.next_state(TimeState::Day);
     // music.send(MusicEvent::Play);
 }
 
@@ -415,7 +407,7 @@ struct NextDayUi;
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
     // commands.next_state(GameState::Night);
-    commands.next_state(GameState::Day);
+    commands.next_state(TimeState::Evening);
 
     let id = commands.register_one_shot_system(spawn_insight);
     commands.insert_resource(SpawnInsight(id));
@@ -955,7 +947,9 @@ pub fn update_cursor(
             }
 
             if insight.character.as_ref() != selected_character.iter().next().map(|s| &s.1 .0) {
-                *visibility = Visibility::Visible;
+                if !selected_character.is_empty() {
+                    *visibility = Visibility::Visible;
+                }
             } else {
                 *visibility = Visibility::Hidden;
             }

@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
 use crate::ui::{set_world_to_black, ActiveMask};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
-use crate::{type_writer, GameState};
+use crate::{type_writer, CharacterSet, GameState, TimeState};
 use bevy::math::VectorSpace;
 use bevy::{
     ecs::system::SystemId,
@@ -29,14 +29,19 @@ impl Plugin for CharacterPlugin {
             // .insert_resource(SelectedCharacter::default())
             .add_systems(
                 OnEnter(GameState::Main),
-                (load_characters, crate::state::initialize_filters).chain(),
+                (
+                    load_characters,
+                    crate::state::initialize_filters,
+                    // choose_new_character,
+                )
+                    .chain(),
             )
-            .add_systems(PreUpdate, (load_character_sprite, hide_characters))
-            .add_systems(OnEnter(GameState::Day), choose_new_character)
+            .add_systems(PreUpdate, load_character_sprite)
+            // .add_systems(OnEnter(TimeState::Day), choose_new_character)
+            .add_systems(OnEnter(TimeState::Night), set_dream_character)
             .add_systems(
                 Update,
-                (update_character_sprite, character_ui, handle_slide_intro)
-                    .run_if(in_state(GameState::Day)),
+                (character_ui, handle_slide_intro).in_set(CharacterSet),
             )
             .register_type::<CharacterUi>();
     }
@@ -64,6 +69,8 @@ pub struct CharacterAssets {
     west_duchess: Handle<Character>,
     #[asset(path = "characters/nun.character.yaml")]
     nun: Handle<Character>,
+    #[asset(path = "characters/dream-man.character.yaml")]
+    dream_man: Handle<Character>,
 }
 
 #[derive(Debug, Resource)]
@@ -73,19 +80,18 @@ pub struct Characters {
     pub choose_new_character: SystemId,
 }
 
-fn manage_game_state(mut commands: Commands) {}
-
 fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets>) {
     let mut characters = HashMap::default();
 
     characters.extend([
         // ("jeremy", character_assets.jeremy.clone()),
         // ("merideth", character_assets.merideth.clone()),
-        ("prince", character_assets.prince.clone()),
+        // ("prince", character_assets.prince.clone()),
+        ("dream-man", character_assets.dream_man.clone()),
         // ("princess", character_assets.princess.clone()),
         // ("blacksmith", character_assets.blacksmith.clone()),
         // ("tax-man", character_assets.tax_man.clone()),
-        // ("village-leader", character_assets.village_leader.clone()),
+        ("village-leader", character_assets.village_leader.clone()),
         // ("baker", character_assets.baker.clone()),
         // ("west-duchess", character_assets.west_duchess.clone()),
         // ("nun", character_assets.nun.clone()),
@@ -155,6 +161,95 @@ fn choose_new_character(
 
     let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
     *type_writer = TypeWriter::new(request.text.clone(), 0.025, sfx);
+
+    let character = character_assets.get_mut(&new_handle).unwrap();
+    character.set_used(state.day, request_index);
+
+    if let Some(entities) = character.sprite {
+        for entity in entities.iter() {
+            if let Ok(sprite) = sprites.get(*entity) {
+                let slide = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_secs_f32(1.5),
+                    TransformPositionLens {
+                        start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
+                        end: Vec3::ZERO.with_z(sprite.translation.z),
+                    },
+                );
+
+                commands.entity(*entity).insert((
+                    SelectedCharacterSprite,
+                    Animator::new(
+                        slide.then(
+                            Delay::new(Duration::from_secs_f32(0.5))
+                                .with_completed_event(FINISHED_SLIDE),
+                        ),
+                    ),
+                ));
+            }
+        }
+    }
+
+    if let Ok((entity, mut selected_character)) = selected_character.get_single_mut() {
+        selected_character.0 = new_handle;
+        commands.entity(entity).insert(SlidingIntro);
+    } else {
+        commands.spawn((SelectedCharacter(new_handle), SlidingIntro));
+    }
+}
+
+fn set_dream_character(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut characters: ResMut<Characters>,
+    mut character_assets: ResMut<Assets<Character>>,
+    mut type_writer: ResMut<TypeWriter>,
+    prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
+    state: Res<KingdomState>,
+    sprites: Query<&Transform, With<CharacterSprite>>,
+    mut selected_character: Query<(Entity, &mut SelectedCharacter)>,
+) {
+    let mut rng = thread_rng();
+    let (new_character, new_handle, (request_index, request)) = characters
+        .table
+        .iter()
+        .filter_map(|(key, handle)| {
+            if *key == characters.current_key {
+                return None;
+            }
+
+            let character = character_assets.get(handle).unwrap();
+            character
+                .sample_requests(state.day, &mut rng)
+                .map(|r| (*key, handle.clone(), r))
+        })
+        .find(|(new_character, _, (_, _))| *new_character == "dream-man")
+        .expect("could not set dream character");
+
+    info!("selecting dream character: {:?}", new_character);
+    characters.current_key = new_character;
+
+    for (entity, transform) in prev_sel_sprite.iter() {
+        commands.entity(entity).remove::<SelectedCharacterSprite>();
+
+        let slide = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_secs_f32(1.5),
+            TransformPositionLens {
+                start: transform.translation,
+                end: Vec3::default()
+                    .with_x(-300.)
+                    .with_z(transform.translation.z),
+            },
+        );
+
+        commands.entity(entity).insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+        ));
+    }
+
+    let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
+    *type_writer = TypeWriter::new(request.text.clone(), 0.035, sfx);
 
     let character = character_assets.get_mut(&new_handle).unwrap();
     character.set_used(state.day, request_index);
@@ -265,7 +360,7 @@ enum CharacterSprite {
 }
 
 #[derive(Component)]
-struct SelectedCharacterSprite;
+pub struct SelectedCharacterSprite;
 
 #[derive(Component, Reflect, Default)]
 pub enum CharacterUi {
@@ -382,36 +477,6 @@ fn character_ui(
     }
 }
 
-fn hide_characters(mut character_sprites: Query<&mut Visibility, With<CharacterSprite>>) {
-    for mut vis in character_sprites.iter_mut() {
-        // *vis = Visibility::Hidden;
-    }
-}
-
-fn update_character_sprite(
-    windows: Query<&Window>,
-    mut character_sprite: Query<&mut Visibility, With<SelectedCharacterSprite>>,
-    mut talking_sprite: Query<&mut Transform, With<TalkingCharacter>>,
-) {
-    let window = windows.single();
-
-    // for mut vis in character_sprite.iter_mut() {
-    //     *vis = Visibility::Visible;
-    // }
-
-    // for mut transform in talking_sprite.iter_mut() {
-    //     transform.translation.y += 0.01;
-    // }
-
-    // if let Some(world_position) = window.cursor_position() {
-    //     if world_position.y > 100. && world_position.y < 400. {
-    //         sprite.scale = Vec3::splat(1.2);
-    //     } else {
-    //         sprite.scale = Vec3::splat(1.0);
-    //     }
-    // }
-}
-
 #[derive(Debug, Default, Component)]
 pub struct SelectedCharacter(pub Handle<Character>);
 
@@ -468,6 +533,7 @@ pub enum Class {
     Priest,
     Lord,
     Royal,
+    GreaterOne,
 }
 
 #[derive(Debug, Default, Deserialize, Component, Reflect, Clone)]

@@ -1,10 +1,16 @@
+use std::time::Duration;
+
 use super::KingdomState;
 use crate::{
-    character::{Character, Characters},
+    character::{Character, Characters, SelectedCharacter, SelectedCharacterSprite},
     ui::DecisionType,
+    TimeState,
 };
 use bevy::{ecs::system::SystemId, prelude::*};
+use bevy_tweening::*;
 use foldhash::HashMap;
+use lens::TransformPositionLens;
+use sickle_ui::ui_commands::UpdateStatesExt;
 
 pub struct HandlerPlugin;
 
@@ -54,7 +60,8 @@ handler_map! {
     smithy_strikers,
     nun_paganism,
     prince_festival_handler,
-    prince_disabled_handler
+    prince_disabled_handler,
+    dream_transition_to_day
 }
 
 #[derive(Debug, Default, Resource)]
@@ -112,6 +119,34 @@ fn prince_disabled_handler(state: Res<KingdomState>, mut prince: ResMut<PrinceSt
             prince.housed_disabled = Some(false);
         }
         _ => {}
+    }
+}
+
+fn dream_transition_to_day(
+    mut commands: Commands,
+    prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
+    selected_character: Query<Entity, With<SelectedCharacter>>,
+) {
+    commands.next_state(TimeState::Morning);
+    commands.entity(selected_character.single()).despawn();
+
+    for (entity, transform) in prev_sel_sprite.iter() {
+        commands.entity(entity).remove::<SelectedCharacterSprite>();
+
+        let slide = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_secs_f32(1.5),
+            TransformPositionLens {
+                start: transform.translation,
+                end: Vec3::default()
+                    .with_x(-300.)
+                    .with_z(transform.translation.z),
+            },
+        );
+
+        commands.entity(entity).insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+        ));
     }
 }
 
