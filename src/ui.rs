@@ -1,5 +1,7 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
-use crate::character::{self, Character, CharacterUi, Characters, SelectedCharacter};
+use crate::character::{
+    self, choose_new_character, Character, CharacterUi, Characters, SelectedCharacter,
+};
 use crate::music::{MusicEvent, MusicKind};
 use crate::pixel_perfect::{
     InGameCamera, OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH,
@@ -36,6 +38,7 @@ impl Plugin for UiPlugin {
             .add_systems(
                 OnEnter(GameState::Main),
                 (
+                    startup_debug,
                     startup,
                     setup,
                     setup_ui,
@@ -405,10 +408,14 @@ pub struct FadeToBlackSprite;
 #[derive(Component)]
 struct NextDayUi;
 
-fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
+fn startup_debug(mut commands: Commands, mut state: ResMut<KingdomState>) {
     // commands.next_state(TimeState::Evening);
-    // commands.next_state(TimeState::Morning);
+    commands.next_state(TimeState::Morning);
 
+    state.day = 1;
+}
+
+fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
     let id = commands.register_one_shot_system(spawn_insight);
     commands.insert_resource(SpawnInsight(id));
     let id = commands.register_one_shot_system(despawn_insight);

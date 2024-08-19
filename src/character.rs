@@ -39,6 +39,7 @@ impl Plugin for CharacterPlugin {
             .add_systems(PreUpdate, load_character_sprite)
             // .add_systems(OnEnter(TimeState::Day), choose_new_character)
             .add_systems(OnEnter(TimeState::Night), set_dream_character)
+            // .add_systems(OnEnter(GameState::Main), choose_new_character)
             .add_systems(
                 Update,
                 (character_ui, handle_slide_intro).in_set(CharacterSet),
@@ -108,7 +109,7 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
 #[derive(Component)]
 struct SlidingIntro;
 
-fn choose_new_character(
+pub fn choose_new_character(
     mut commands: Commands,
     server: Res<AssetServer>,
     mut characters: ResMut<Characters>,
@@ -361,7 +362,7 @@ fn load_character_sprite(
 }
 
 #[derive(Component)]
-enum CharacterSprite {
+pub enum CharacterSprite {
     Head,
     Body,
 }

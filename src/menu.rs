@@ -4,7 +4,12 @@ use crate::{
     GameState,
 };
 use bevy::{
-    ecs::world, math::VectorSpace, prelude::*, render::view::RenderLayers, ui::ContentSize,
+    audio::{PlaybackMode, Volume},
+    ecs::world,
+    math::VectorSpace,
+    prelude::*,
+    render::view::RenderLayers,
+    ui::ContentSize,
     window::PrimaryWindow,
 };
 use bevy_hanabi::prelude::*;
@@ -104,6 +109,15 @@ pub fn setup_cursor(
 }
 
 fn setup(mut commands: Commands, server: Res<AssetServer>) {
+    // commands.spawn(AudioBundle {
+    //     source: server.load("audio/wind.mp3"),
+    //     settings: PlaybackSettings {
+    //         mode: PlaybackMode::Loop,
+    //         volume: Volume::new(1.),
+    //         ..Default::default()
+    //     },
+    // });
+
     commands.spawn((
         SpriteBundle {
             texture: server.load("Nature Landscapes Free Pixel Art/nature_4/1.png"),
@@ -133,26 +147,6 @@ fn setup(mut commands: Commands, server: Res<AssetServer>) {
         ParallaxSprite(0.001),
         HIGH_RES_LAYER,
     ));
-
-    commands.spawn(StartGameButton).with_children(|parent| {
-        parent.spawn((
-            SpriteBundle {
-                texture: server.load("ui/main_menu_box.png"),
-                transform: Transform::from_xyz(7.5, 0., 110.),
-                ..Default::default()
-            },
-            HIGH_RES_LAYER,
-        ));
-        parent.spawn((
-            SpriteBundle {
-                texture: server.load("ui/new_game_text.png"),
-                transform: Transform::from_scale(Vec3::splat(0.6))
-                    .with_translation(Vec3::new(-0.3, 1.2, 111.)),
-                ..Default::default()
-            },
-            HIGH_RES_LAYER,
-        ));
-    });
 }
 
 #[derive(Component)]
