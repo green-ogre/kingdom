@@ -16,6 +16,7 @@ foldhash = "0.1"
 bevy_hanabi = "0.12.2"
 bevy_health_bar3d = "3.3.0"
 serde_yaml = "0.9"
+bevy_kira_audio = { version = "0.20", features = ["wav"] }
 
 [dependencies.bevy_common_assets]
 version = "0.11.0"
