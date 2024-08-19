@@ -1,7 +1,8 @@
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
-use crate::ui::{set_world_to_black, ActiveMask, DespawnInsight};
+use crate::ui::{handle_morning, set_world_to_black, ActiveMask, DespawnInsight};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
 use crate::{type_writer, CharacterSet, GameState, TimeState};
+use bevy::audio::Volume;
 use bevy::math::VectorSpace;
 use bevy::{
     ecs::system::SystemId,
@@ -17,6 +18,7 @@ use bevy_tweening::{
 };
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use serde::Deserialize;
+use sickle_ui::ui_commands::UpdateStatesExt;
 use std::time::Duration;
 
 pub struct CharacterPlugin;
@@ -28,7 +30,12 @@ impl Plugin for CharacterPlugin {
             // .insert_resource(SelectedCharacter::default())
             .add_systems(
                 OnEnter(GameState::Main),
-                (load_characters, crate::state::initialize_filters).chain(),
+                (
+                    load_characters,
+                    crate::state::initialize_filters,
+                    enter_morning,
+                )
+                    .chain(),
             )
             .add_systems(PreUpdate, load_character_sprite)
             .add_systems(OnEnter(TimeState::Day), choose_new_character)
@@ -40,6 +47,18 @@ impl Plugin for CharacterPlugin {
             )
             .register_type::<CharacterUi>();
     }
+}
+
+fn enter_morning(mut commands: Commands, server: Res<AssetServer>) {
+    // commands.next_state(TimeState::Morning);
+    let id = commands.register_one_shot_system(set_world_to_black);
+    commands.run_system(id);
+    commands.spawn(AudioBundle {
+        source: server.load("audio/church_bells.wav"),
+        settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+    });
+    let id = commands.register_one_shot_system(handle_morning);
+    commands.run_system(id);
 }
 
 #[derive(AssetCollection, Resource)]
@@ -83,13 +102,13 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
         // ("merideth", character_assets.merideth.clone()),
         ("prince", character_assets.prince.clone()),
         ("dream-man", character_assets.dream_man.clone()),
-        // ("princess", character_assets.princess.clone()),
-        // ("blacksmith", character_assets.blacksmith.clone()),
-        // ("tax-man", character_assets.tax_man.clone()),
-        // ("village-leader", character_assets.village_leader.clone()),
-        // ("baker", character_assets.baker.clone()),
-        // ("west-duchess", character_assets.west_duchess.clone()),
-        // ("nun", character_assets.nun.clone()),
+        ("princess", character_assets.princess.clone()),
+        ("blacksmith", character_assets.blacksmith.clone()),
+        ("tax-man", character_assets.tax_man.clone()),
+        ("village-leader", character_assets.village_leader.clone()),
+        ("baker", character_assets.baker.clone()),
+        ("west-duchess", character_assets.west_duchess.clone()),
+        ("nun", character_assets.nun.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
@@ -214,7 +233,10 @@ pub fn choose_new_character(
     info!("selecting new character: {:?}", new_character);
     characters.current_key = new_character;
 
-    let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
+    let mut sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
+    if new_character == "dream-man" {
+        sfx = server.load("audio/cursor_style_2_rev.wav");
+    }
     *type_writer = TypeWriter::new(request.text.clone(), 0.025, sfx);
 
     let character = character_assets.get_mut(&new_handle).unwrap();

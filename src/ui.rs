@@ -9,6 +9,7 @@ use crate::pixel_perfect::{
 use crate::state::{EndDay, KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
 use bevy::audio::PlaybackMode;
+use bevy::color::palettes::css::PINK;
 use bevy::ecs::system::SystemId;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseButtonInput;
@@ -38,10 +39,11 @@ impl Plugin for UiPlugin {
             .add_systems(
                 OnEnter(GameState::Main),
                 (
-                    startup_debug,
+                    // startup_debug,
                     startup,
                     setup,
                     setup_ui,
+                    setup_state_bars,
                     setup_heart_ui,
                     setup_courtroom,
                     setup_background,
@@ -50,7 +52,14 @@ impl Plugin for UiPlugin {
             )
             .add_systems(
                 Update,
-                (heart_ui, mask_ui, display_insight_tooltip, display_insight).in_set(CharacterSet),
+                (
+                    heart_ui,
+                    mask_ui,
+                    display_insight_tooltip,
+                    display_insight,
+                    display_state_bars,
+                )
+                    .in_set(CharacterSet),
             )
             .add_systems(
                 Update,
@@ -146,7 +155,7 @@ fn handle_night(mut commands: Commands, camera: Query<Entity, With<InGameCamera>
 }
 
 #[derive(Resource, Default)]
-struct DayNumberUi(Option<Timer>);
+pub struct DayNumberUi(Option<Timer>);
 
 fn enter_morning(
     mut commands: Commands,
@@ -164,7 +173,7 @@ fn enter_morning(
     // music.send(MusicEvent::FadeOutSecs(5.));
 }
 
-fn handle_morning(
+pub fn handle_morning(
     mut commands: Commands,
     mut next_day_ui: Query<(&mut Visibility, &mut Text), With<NextDayUi>>,
     mut day_number_ui: ResMut<DayNumberUi>,
@@ -187,16 +196,18 @@ fn handle_morning(
 ) {
     info!("handle morning");
 
-    commands
-        .entity(cricket_audio.single())
-        .insert(Animator::new(Tween::new(
-            EaseMethod::Linear,
-            Duration::from_secs_f32(5.),
-            AudioVolumeLens {
-                start: CRICKET_VOLUME,
-                end: 0.,
-            },
-        )));
+    if let Ok(cricket_audio) = cricket_audio.get_single() {
+        commands
+            .entity(cricket_audio)
+            .insert(Animator::new(Tween::new(
+                EaseMethod::Linear,
+                Duration::from_secs_f32(5.),
+                AudioVolumeLens {
+                    start: CRICKET_VOLUME,
+                    end: 0.,
+                },
+            )));
+    }
     commands.entity(crowd_audio.single()).insert(Animator::new(
         Delay::new(Duration::from_secs_f32(3.)).then(Tween::new(
             EaseMethod::Linear,
@@ -234,7 +245,7 @@ fn enter_day(
     let (mut vis, _) = next_day_ui.single_mut();
     *vis = Visibility::Hidden;
 
-    commands.run_system(characters.choose_new_character);
+    // commands.run_system(characters.choose_new_character);
     commands.next_state(TimeState::Day);
     // music.send(MusicEvent::Play);
 }
@@ -406,13 +417,14 @@ pub struct UiNode;
 pub struct FadeToBlackSprite;
 
 #[derive(Component)]
-struct NextDayUi;
+pub struct NextDayUi;
 
 fn startup_debug(mut commands: Commands, mut state: ResMut<KingdomState>) {
     // commands.next_state(TimeState::Evening);
-    commands.next_state(TimeState::Day);
+    // commands.next_state(GameState::Main);
+    // commands.next_state(TimeState::Day);
 
-    state.day = 0;
+    // state.day = 0;
 }
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
@@ -660,7 +672,7 @@ struct BackgroundClouds;
 struct BackgroundTown;
 
 #[derive(Component)]
-struct BackgroundTownNight;
+pub struct BackgroundTownNight;
 
 fn animate_clouds(mut clouds: Query<&mut Transform, With<BackgroundClouds>>, time: Res<Time>) {
     const SPEED: f32 = 0.5;
@@ -674,17 +686,17 @@ fn animate_clouds(mut clouds: Query<&mut Transform, With<BackgroundClouds>>, tim
 }
 
 #[derive(Component)]
-enum Crowd {
+pub enum Crowd {
     One(Timer),
     Two(Timer),
     Three(Timer),
 }
 
 #[derive(Component)]
-struct CrowdAudio;
+pub struct CrowdAudio;
 
 #[derive(Component)]
-struct CricketAudio;
+pub struct CricketAudio;
 
 fn animate_crowd(mut crowds: Query<(&mut Crowd, &mut TextureAtlas)>, time: Res<Time>) {
     for (crowd, mut atlas) in crowds.iter_mut() {
@@ -812,6 +824,7 @@ pub fn update_cursor(
     mut insight_bar: Query<(Entity, &mut Transform, &mut InsightBar)>,
     mut insight_bar_border: Query<Entity, With<InsightBarBorder>>,
     insight_sfx: Query<Entity, With<InsightChargeSfx>>,
+    state: Res<KingdomState>,
 ) {
     let window = windows.single();
     let Ok((entity, mut style)) = cursor.get_single_mut() else {
@@ -837,7 +850,7 @@ pub fn update_cursor(
             if let Ok((_, mut sprite_transform, mut bar)) = insight_bar.get_single_mut() {
                 bar.0 = insight.grace.remaining().as_secs_f32()
                     / insight.grace.duration().as_secs_f32();
-                sprite_transform.scale.x = bar.0 / 1.0;
+                sprite_transform.scale.x = bar.0 / 1.0 * 0.5;
             }
 
             for input in reader.read() {
@@ -847,12 +860,14 @@ pub fn update_cursor(
                             if insight.is_held == false
                                 && insight.character.as_ref()
                                     != selected_character.iter().next().map(|s| &s.1 .0)
+                                && state.day > 0
                             {
                                 let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
                                 commands.spawn((
                                     SpriteBundle {
                                         texture: server.load(bar_path),
-                                        transform: Transform::from_xyz(0., 0., 310.),
+                                        transform: Transform::from_xyz(-76., 20., 310.)
+                                            .with_scale(Vec3::splat(0.5)),
                                         ..Default::default()
                                     },
                                     InsightBarBorder,
@@ -863,8 +878,8 @@ pub fn update_cursor(
                                 commands.spawn((
                                     SpriteBundle {
                                         texture: server.load(bar_path),
-                                        transform: Transform::from_xyz(0., 0., 300.)
-                                            .with_scale(Vec3::new(0., 1., 1.)),
+                                        transform: Transform::from_xyz(-76., 20., 310.)
+                                            .with_scale(Vec3::new(0., 0.5, 0.5)),
                                         ..Default::default()
                                     },
                                     InsightBar(0.),
@@ -905,7 +920,7 @@ pub fn update_cursor(
                 }
             }
 
-            if insight.grace.finished() && insight.is_held {
+            if insight.grace.finished() && insight.is_held && state.day > 0 {
                 writer.send(AquireInsight);
                 insight.is_held = false;
                 if let Ok((entity, _, _)) = insight_bar.get_single() {
@@ -921,7 +936,7 @@ pub fn update_cursor(
             }
 
             if insight.character.as_ref() != selected_character.iter().next().map(|s| &s.1 .0) {
-                if !selected_character.is_empty() {
+                if !selected_character.is_empty() && state.day > 0 {
                     *visibility = Visibility::Visible;
                 }
             } else {
@@ -942,6 +957,147 @@ pub fn update_cursor(
             }
 
             *visibility = Visibility::Hidden;
+        }
+    }
+}
+
+#[derive(Component)]
+enum StatBar {
+    Wealth,
+    Happiness,
+    Heart,
+}
+
+#[derive(Component)]
+struct Filler;
+
+fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
+    commands.spawn((
+        StatBar::Heart,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., -10., 310.).with_scale(Vec3::splat(0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat bar"),
+        HIGH_RES_LAYER,
+    ));
+    commands.spawn((
+        StatBar::Heart,
+        SpriteBundle {
+            texture: server.load("ui/Skill Tree/Icons/Unlocked/x1/Unlocked11.png"),
+            transform: Transform::from_xyz(-116., -10., 310.).with_scale(Vec3::splat(0.25)),
+            ..Default::default()
+        },
+        Name::new("Heart"),
+        HIGH_RES_LAYER,
+    ));
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar_filler x1.png";
+    commands.spawn((
+        StatBar::Heart,
+        Filler,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., -10., 310.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat filler"),
+        HIGH_RES_LAYER,
+    ));
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
+    commands.spawn((
+        StatBar::Happiness,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., 0., 310.).with_scale(Vec3::splat(0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat bar"),
+        HIGH_RES_LAYER,
+    ));
+    commands.spawn((
+        StatBar::Happiness,
+        SpriteBundle {
+            texture: server.load("ui/happiness.png"),
+            transform: Transform::from_xyz(-116., 0., 310.).with_scale(Vec3::splat(0.25 / 2.)),
+            ..Default::default()
+        },
+        HIGH_RES_LAYER,
+    ));
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar_filler x1.png";
+    commands.spawn((
+        StatBar::Happiness,
+        Filler,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., 0., 310.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat filler"),
+        HIGH_RES_LAYER,
+    ));
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
+    commands.spawn((
+        StatBar::Wealth,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., 10., 310.).with_scale(Vec3::splat(0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat bar"),
+        HIGH_RES_LAYER,
+    ));
+    commands.spawn((
+        StatBar::Wealth,
+        SpriteBundle {
+            texture: server.load("ui/wealth.png"),
+            transform: Transform::from_xyz(-116., 10., 310.).with_scale(Vec3::splat(0.25 / 2.)),
+            ..Default::default()
+        },
+        HIGH_RES_LAYER,
+    ));
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar_filler x1.png";
+    commands.spawn((
+        StatBar::Wealth,
+        Filler,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., 10., 310.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat filler"),
+        HIGH_RES_LAYER,
+    ));
+}
+
+fn display_state_bars(
+    mut bars: Query<(&mut Transform, &StatBar, &mut Visibility, Has<Filler>)>,
+    state: Res<KingdomState>,
+    selected_player: Query<Entity, With<ShowSelectionUi>>,
+    time_state: Res<State<TimeState>>,
+) {
+    if *time_state.get() != TimeState::Day && *time_state.get() != TimeState::Night {
+        for (_, _, mut vis, _) in bars.iter_mut() {
+            *vis = Visibility::Hidden;
+        }
+    } else {
+        for (mut sprite_transform, bar, mut vis, filler) in bars.iter_mut() {
+            *vis = Visibility::Visible;
+
+            if filler {
+                match bar {
+                    StatBar::Wealth => {
+                        sprite_transform.scale.x = (state.wealth / 500.0 * 0.5).clamp(0., 0.5);
+                    }
+                    StatBar::Heart => {
+                        sprite_transform.scale.x = (state.heart_size / 100.0 * 0.5).clamp(0., 0.5);
+                    }
+                    StatBar::Happiness => {
+                        sprite_transform.scale.x = (state.wealth / 500.0 * 0.5).clamp(0., 0.5);
+                    }
+                }
+            }
         }
     }
 }
@@ -1049,7 +1205,7 @@ pub fn spawn_insight(
                 .style()
                 .justify_content(JustifyContent::Start);
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!(" -{}", request.no.heart_size.abs() as u32),
                         TextStyle {
@@ -1074,7 +1230,7 @@ pub fn spawn_insight(
                 .style()
                 .justify_content(JustifyContent::Start);
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!(" -{}", request.no.happiness.abs() as u32),
                         TextStyle {
@@ -1099,7 +1255,7 @@ pub fn spawn_insight(
                 .style()
                 .justify_content(JustifyContent::Start);
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!(" -{}", request.no.wealth.abs() as u32),
                         TextStyle {
@@ -1126,7 +1282,7 @@ pub fn spawn_insight(
                 .style()
                 .justify_content(JustifyContent::Start);
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!(
                             " -{}",
@@ -1154,7 +1310,7 @@ pub fn spawn_insight(
         .column(|column| {
             column.row(|row| {
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!("+{} ", request.yes.heart_size.abs() as u32),
                         TextStyle {
@@ -1181,7 +1337,7 @@ pub fn spawn_insight(
 
             column.row(|row| {
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!("+{} ", request.yes.happiness.abs() as u32),
                         TextStyle {
@@ -1206,7 +1362,7 @@ pub fn spawn_insight(
 
             column.row(|row| {
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!("+{} ", request.yes.wealth.abs() as u32),
                         TextStyle {
@@ -1231,7 +1387,7 @@ pub fn spawn_insight(
 
             column.row(|row| {
                 row.spawn((
-                    UiNode,
+                    InsightNode,
                     TextBundle::from_section(
                         &format!(
                             "+{} ",

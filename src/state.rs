@@ -180,5 +180,7 @@ fn check_heart_end_conditions(state: Res<KingdomState>, mut commands: Commands) 
         commands.next_state(GameState::Loose);
     } else if state.wealth > 10000. {
         commands.next_state(GameState::Win);
+    } else if state.day == 3 {
+        commands.next_state(GameState::Win);
     }
 }

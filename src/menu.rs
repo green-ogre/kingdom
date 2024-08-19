@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use crate::{
     pixel_perfect::{OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER},
     type_writer::{self, TypeWriter},
-    ui::{Cursor, Insight, InsightToolTip, UiNode},
-    GameState,
+    ui::{handle_morning, set_world_to_black, Cursor, Insight, InsightToolTip, UiNode},
+    GameState, TimeState,
 };
 use bevy::{
     audio::{PlaybackMode, Volume},
@@ -15,7 +17,7 @@ use bevy::{
     window::PrimaryWindow,
 };
 use bevy_hanabi::prelude::*;
-use sickle_ui::prelude::*;
+use sickle_ui::{prelude::*, ui_commands::UpdateStatesExt};
 
 pub const FONT_PATH: &'static str = "ui/alagard.ttf";
 
@@ -110,15 +112,29 @@ pub fn setup_cursor(
         .justify_content(JustifyContent::End);
 }
 
+#[derive(Resource)]
+struct EnterMorningTimer(Timer, u32);
+
+#[derive(Component)]
+struct Intro;
+
 fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResMut<TypeWriter>) {
-    commands.spawn(AudioBundle {
-        source: server.load("audio/birds-19624.mp3"),
-        settings: PlaybackSettings {
-            mode: PlaybackMode::Loop,
-            volume: Volume::new(0.5),
-            ..Default::default()
+    commands.insert_resource(EnterMorningTimer(
+        Timer::from_seconds(5., TimerMode::Repeating),
+        0,
+    ));
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/birds-19624.mp3"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                volume: Volume::new(0.5),
+                ..Default::default()
+            },
         },
-    });
+        Intro,
+    ));
 
     commands.spawn((
         TextBundle::from_section(
@@ -132,17 +148,22 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
         .with_text_justify(JustifyText::Left)
         .with_style(Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(472.),
-            top: Val::Px(702.7),
-            max_width: Val::Px(980.7),
+            left: Val::Px(600.),
+            top: Val::Px(200.),
+            // max_width: Val::Px(1000.),
             ..Default::default()
         }),
-        Name::new("Character Text"),
-        UiNode,
+        IntroText,
+        Intro,
     ));
 
-    let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
-    *type_writer = TypeWriter::new("This is some cool text isn't it?".into(), 0.035, sfx);
+    let sfx = server.load("audio/cursor_style_2_rev.wav");
+    *type_writer = TypeWriter::new(
+        "Your heart, dear King, it weighs the will of one\nWho seeks of you a choice, a thing undone. "
+            .into(),
+        0.035,
+        sfx,
+    );
 
     commands.spawn((
         SpriteBundle {
@@ -152,6 +173,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
             ..Default::default()
         },
         HIGH_RES_LAYER,
+        Intro,
     ));
     commands.spawn((
         SpriteBundle {
@@ -162,6 +184,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
         },
         ParallaxSprite(0.005),
         HIGH_RES_LAYER,
+        Intro,
     ));
     commands.spawn((
         SpriteBundle {
@@ -172,6 +195,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
         },
         ParallaxSprite(0.001),
         HIGH_RES_LAYER,
+        Intro,
     ));
 }
 
@@ -274,6 +298,7 @@ fn setup_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>
         },
         RenderLayers::layer(2),
         MainMenuParticles,
+        Intro,
     ));
 }
 
@@ -286,18 +311,44 @@ fn update_text(
     mut type_writer: ResMut<TypeWriter>,
     mut reader: EventReader<KeyboardInput>,
     time: Res<Time>,
+    mut timer: ResMut<EnterMorningTimer>,
+    enitites: Query<Entity, With<Intro>>,
+    server: Res<AssetServer>,
 ) {
-    type_writer.increment(&time);
-    type_writer.try_play_sound(&mut commands);
+    timer.0.tick(time.delta());
 
-    for input in reader.read() {
-        if matches!(input, KeyboardInput { key_code,  state, .. } if *key_code == KeyCode::Space && *state == ButtonState::Pressed)
-        {
-            type_writer.finish();
+    if timer.0.finished() {
+        timer.1 += 1;
+
+        if timer.1 == 2 {
+            let sfx = server.load("audio/cursor_style_2_rev.wav");
+            let line = "Closely must You watch this beating sieve;\nToo much, too little, and Your heart will give.";
+            *type_writer = TypeWriter::new(line.into(), 0.035, sfx);
+            timer.0.set_duration(Duration::from_secs_f32(7.));
+        }
+
+        if timer.1 == 3 {
+            commands.next_state(GameState::Main);
+            for entity in enitites.iter() {
+                commands.entity(entity).despawn();
+            }
+
+            return;
         }
     }
 
-    let mut text = intro_text.single_mut();
-    // text.sections[0].style.color.set_alpha(1.);
-    text.sections[0].value = type_writer.slice_with_line_wrap().into();
+    if timer.1 > 0 {
+        type_writer.increment(&time);
+        type_writer.try_play_sound(&mut commands);
+
+        for input in reader.read() {
+            if matches!(input, KeyboardInput { key_code,  state, .. } if *key_code == KeyCode::Space && *state == ButtonState::Pressed)
+            {
+                type_writer.finish();
+            }
+        }
+
+        let mut text = intro_text.single_mut();
+        text.sections[0].value = type_writer.slice_with_line_wrap().into();
+    }
 }
