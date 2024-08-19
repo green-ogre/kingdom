@@ -1,5 +1,3 @@
-use std::time::Duration;
-use super::KingdomState;
 use crate::{
     character::{Character, Characters, SelectedCharacter, SelectedCharacterSprite},
     ui::DecisionType,
@@ -10,6 +8,9 @@ use bevy_tweening::*;
 use foldhash::HashMap;
 use lens::TransformPositionLens;
 use sickle_ui::ui_commands::UpdateStatesExt;
+use std::time::Duration;
+
+use super::KingdomState;
 
 pub struct HandlerPlugin;
 
@@ -187,15 +188,28 @@ pub struct DreamState {
 }
 
 set_flag!(dream_summon, DreamState, said_summoned);
-set_flag!(present_hand, DreamState, presented_hand);
+// set_flag!(present_hand, DreamState, presented_hand);
 // set_flag!(present_hand, DreamState, presented_hand);
 // set_flag!(present_hand, DreamState, presented_hand);
 
-fn conditional_succ(state: Res<KingdomState>, mut prince: ResMut<DreamState>) {
+fn present_hand(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    match state.last_decision {
+        Some(DecisionType::Yes) => {
+            dream.this_gift = true;
+        }
+        Some(DecisionType::No) => {
+            dream.no_choice = true;
+        }
+        _ => {}
+    }
+}
+
+fn conditional_succ(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
     warn!("Do succing");
 }
 
-fn succ(state: Res<KingdomState>, mut prince: ResMut<DreamState>) {
+fn succ(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    dream.this_gift = true;
     warn!("Do succing");
 }
 

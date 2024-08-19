@@ -1,7 +1,8 @@
-use crate::{state::EndDay, GameState};
+use crate::{state::EndDay, GameState, TimeState};
 use bevy::{
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
+    time::time_system,
 };
 use bevy_kira_audio::prelude::*;
 
@@ -55,7 +56,8 @@ fn start_music(mut event_writer: EventWriter<MusicEvent>) {
 fn test_music(
     mut key: EventReader<KeyboardInput>,
     mut event_writer: EventWriter<MusicEvent>,
-    mut end_day: EventWriter<EndDay>,
+    // mut end_day: EventWriter<EndDay>,
+    mut time_state: ResMut<NextState<TimeState>>,
     mut commands: Commands,
     server: Res<AssetServer>,
 ) {
@@ -83,7 +85,7 @@ fn test_music(
             }
 
             if event.key_code == KeyCode::Quote {
-                end_day.send(EndDay);
+                time_state.set(TimeState::Evening);
             }
 
             if event.key_code == KeyCode::Comma {

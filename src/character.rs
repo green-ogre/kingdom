@@ -1,7 +1,5 @@
-use std::time::Duration;
-
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
-use crate::ui::{set_world_to_black, ActiveMask};
+use crate::ui::{set_world_to_black, ActiveMask, DespawnInsight};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
 use crate::{type_writer, CharacterSet, GameState, TimeState};
 use bevy::math::VectorSpace;
@@ -19,6 +17,7 @@ use bevy_tweening::{
 };
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use serde::Deserialize;
+use std::time::Duration;
 
 pub struct CharacterPlugin;
 
@@ -32,7 +31,7 @@ impl Plugin for CharacterPlugin {
                 (
                     load_characters,
                     crate::state::initialize_filters,
-                    // choose_new_character,
+                    choose_new_character,
                 )
                     .chain(),
             )
@@ -86,15 +85,15 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
     characters.extend([
         // ("jeremy", character_assets.jeremy.clone()),
         // ("merideth", character_assets.merideth.clone()),
-        // ("prince", character_assets.prince.clone()),
+        ("prince", character_assets.prince.clone()),
         ("dream-man", character_assets.dream_man.clone()),
-        // ("princess", character_assets.princess.clone()),
-        // ("blacksmith", character_assets.blacksmith.clone()),
-        // ("tax-man", character_assets.tax_man.clone()),
+        ("princess", character_assets.princess.clone()),
+        ("blacksmith", character_assets.blacksmith.clone()),
+        ("tax-man", character_assets.tax_man.clone()),
         ("village-leader", character_assets.village_leader.clone()),
-        // ("baker", character_assets.baker.clone()),
-        // ("west-duchess", character_assets.west_duchess.clone()),
-        // ("nun", character_assets.nun.clone()),
+        ("baker", character_assets.baker.clone()),
+        ("west-duchess", character_assets.west_duchess.clone()),
+        ("nun", character_assets.nun.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
@@ -119,17 +118,21 @@ fn choose_new_character(
     sprites: Query<&Transform, With<CharacterSprite>>,
     mut selected_character: Query<(Entity, &mut SelectedCharacter)>,
     time_state: Res<State<TimeState>>,
+    mut next_time_state: ResMut<NextState<TimeState>>,
+    despawn_insight: Res<DespawnInsight>,
 ) {
+    commands.run_system(despawn_insight.0);
+
     let mut rng = thread_rng();
 
     let (new_character, new_handle, (request_index, request)) =
         if *time_state.get() != TimeState::Night {
-            characters
+            match characters
                 .table
                 .iter()
                 // filter out characters whose requests have all been heard
                 .filter_map(|(key, handle)| {
-                    if *key == characters.current_key && *time_state.get() != TimeState::Night {
+                    if *key == characters.current_key || *key == "dream-man" {
                         return None;
                     }
 
@@ -139,14 +142,29 @@ fn choose_new_character(
                         .map(|r| (*key, handle.clone(), r))
                 })
                 .choose(&mut thread_rng())
-                .expect("Do something when all options are exhausted")
+            {
+                Some(items) => items,
+                None => {
+                    // All dialogue exhausted, move to next state
+                    next_time_state.set(TimeState::Evening);
+                    return;
+                }
+            }
         } else {
             let handle = characters.table["dream-man"].clone();
             let character = character_assets.get(&handle).unwrap();
-            character
+
+            match character
                 .sample_requests(state.day, &mut rng)
                 .map(|r| ("dream-man", handle.clone(), r))
-                .expect("Do something when all options are exhausted")
+            {
+                Some(items) => items,
+                None => {
+                    // All dialogue exhausted, move to next state
+                    next_time_state.set(TimeState::Morning);
+                    return;
+                }
+            }
         };
 
     info!("selecting new character: {:?}", new_character);
