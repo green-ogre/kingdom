@@ -4,12 +4,14 @@ use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_
 use crate::state::{EndDay, KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
 use bevy::audio::PlaybackMode;
+use bevy::ecs::system::SystemId;
 use bevy::input::keyboard::KeyboardInput;
 use bevy::input::mouse::MouseButtonInput;
 use bevy::input::ButtonState;
 use bevy::ui::ContentSize;
 use bevy::window::PrimaryWindow;
 use bevy::{audio::Volume, prelude::*};
+use bevy_stat_bars::*;
 use bevy_tweening::*;
 use lens::{TransformRotateZLens, TransformScaleLens};
 use rand::Rng;
@@ -20,7 +22,7 @@ use std::time::Duration;
 
 use crate::GameState;
 
-const INSIGHT_CHARGE_TIME: f32 = 1.0;
+const INSIGHT_CHARGE_TIME: f32 = 2.0;
 
 pub struct UiPlugin;
 
@@ -63,6 +65,9 @@ impl Plugin for UiPlugin {
             .add_event::<AquireInsight>()
             .add_event::<FinishedFadeFromBlack>()
             .add_event::<FinishedFadeToBlack>()
+            // .insert_resource(
+            //     ColorScheme::<Mana>::new().foreground_color(ForegroundColor::Static(Color::BLUE)),
+            // )
             .insert_resource(DayNumberUi::default())
             .insert_resource(Insight::default());
     }
@@ -275,6 +280,10 @@ struct NextDayUi;
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
     // state.heart_size = 1.;
+
+    let id = commands.register_one_shot_system(spawn_insight);
+    commands.insert_resource(SpawnInsight(id));
+    // commands.run_system(id);
 
     commands.spawn((
         SpriteBundle {
@@ -651,6 +660,12 @@ pub struct Insight {
     character: Option<Handle<Character>>,
 }
 
+#[derive(Component, Default, Reflect)]
+pub struct InsightBar(f32);
+
+#[derive(Component)]
+pub struct InsightBarBorder;
+
 impl Default for Insight {
     fn default() -> Self {
         Self {
@@ -676,6 +691,10 @@ pub fn update_cursor(
     mut insight: ResMut<Insight>,
     mut commands: Commands,
     time: Res<Time>,
+    mut selected_character: Query<(Entity, &SelectedCharacter)>,
+    server: Res<AssetServer>,
+    mut insight_bar: Query<(Entity, &mut Transform, &mut InsightBar)>,
+    mut insight_bar_border: Query<Entity, With<InsightBarBorder>>,
 ) {
     let window = windows.single();
     let Ok((entity, mut style)) = cursor.get_single_mut() else {
@@ -684,14 +703,6 @@ pub fn update_cursor(
     let (tool_tip_entity, mut tool_tip_style, mut visibility) = tool_tip.single_mut();
 
     if let Some(world_position) = window.cursor_position() {
-        // let left = world_position.x - 125. + 30.;
-        // let top = world_position.y - 1080. + 56.;
-        //
-        // let left = world_position.x / window.size().x + world_position.x / 2. * window.size().x;
-        // let top = world_position.y / window.size().y;
-
-        // println!("{world_position:?}");
-
         let left = world_position.x - 125.;
         let top = world_position.y - 1080. + 40.;
 
@@ -702,44 +713,111 @@ pub fn update_cursor(
         tool_tip_style.top = Val::Px(top);
 
         // println!("{top:?}");
-        if top < -350. {
+        if top < -350. && !selected_character.is_empty() {
             commands.entity(entity).insert(CursorCanDecide);
-            *visibility = Visibility::Visible;
-        } else {
-            commands.entity(entity).remove::<CursorCanDecide>();
-            *visibility = Visibility::Hidden;
-        }
-    }
+            insight.grace.tick(time.delta());
 
-    insight.grace.tick(time.delta());
+            if let Ok((_, mut sprite_transform, mut bar)) = insight_bar.get_single_mut() {
+                bar.0 = insight.grace.remaining().as_secs_f32()
+                    / insight.grace.duration().as_secs_f32();
+                sprite_transform.scale.x = bar.0 / 1.0;
+            }
 
-    if insight.grace.finished() && insight.is_held {
-        writer.send(AquireInsight);
-    }
+            for input in reader.read() {
+                if input.button == MouseButton::Right {
+                    match input.state {
+                        ButtonState::Pressed => {
+                            if insight.is_held == false
+                                && insight.character.as_ref()
+                                    != selected_character.iter().next().map(|s| &s.1 .0)
+                            {
+                                let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
+                                commands.spawn((
+                                    SpriteBundle {
+                                        texture: server.load(bar_path),
+                                        transform: Transform::from_xyz(0., 0., 310.),
+                                        ..Default::default()
+                                    },
+                                    InsightBarBorder,
+                                    HIGH_RES_LAYER,
+                                ));
+                                let bar_path =
+                                    "ui/Boss bar/Mini Boss bar/mioni_boss_bar_filler x1.png";
+                                commands.spawn((
+                                    SpriteBundle {
+                                        texture: server.load(bar_path),
+                                        transform: Transform::from_xyz(0., 0., 300.)
+                                            .with_scale(Vec3::new(0., 1., 1.)),
+                                        ..Default::default()
+                                    },
+                                    InsightBar(0.),
+                                    HIGH_RES_LAYER,
+                                ));
+                                let sfx_path = "audio/sci-fi-sound-effect-designed-circuits-sfx-tonal-15-202059.mp3";
+                                commands.spawn(AudioBundle {
+                                    source: server.load(sfx_path),
+                                    settings: PlaybackSettings::default()
+                                        .with_volume(Volume::new(0.4)),
+                                });
+                            }
 
-    for input in reader.read() {
-        if input.button == MouseButton::Right {
-            match input.state {
-                ButtonState::Pressed => {
-                    insight.is_held = true;
-                }
-                ButtonState::Released => {
-                    insight.is_held = false;
+                            insight.is_held = true;
+                        }
+                        ButtonState::Released => {
+                            insight.is_held = false;
+                            if let Ok((entity, _, _)) = insight_bar.get_single() {
+                                commands.entity(entity).despawn();
+                            }
+                            if let Ok(entity) = insight_bar_border.get_single() {
+                                commands.entity(entity).despawn();
+                            }
+                            insight.grace.reset();
+                        }
+                    }
+
+                    insight.grace.reset();
                 }
             }
 
-            insight
-                .grace
-                .set_duration(Duration::from_secs_f32(INSIGHT_CHARGE_TIME));
+            if insight.grace.finished() && insight.is_held {
+                writer.send(AquireInsight);
+                insight.is_held = false;
+                if let Ok((entity, _, _)) = insight_bar.get_single() {
+                    commands.entity(entity).despawn();
+                }
+                if let Ok(entity) = insight_bar_border.get_single() {
+                    commands.entity(entity).despawn();
+                }
+                insight.grace.reset();
+            }
+
+            *visibility = Visibility::Visible;
+        } else {
+            commands.entity(entity).remove::<CursorCanDecide>();
+            if let Ok((entity, _, _)) = insight_bar.get_single() {
+                commands.entity(entity).despawn();
+            }
+            if let Ok(entity) = insight_bar_border.get_single() {
+                commands.entity(entity).despawn();
+            }
+            insight.is_held = false;
+            insight.grace.reset();
+
+            *visibility = Visibility::Hidden;
         }
     }
 }
+
+#[derive(Resource)]
+struct SpawnInsight(SystemId);
 
 fn aquire_insight(
     mut reader: EventReader<AquireInsight>,
     mut state: ResMut<KingdomState>,
     selected_character: Query<&SelectedCharacter>,
     mut insight: ResMut<Insight>,
+    mut commands: Commands,
+    spawn_insight: Res<SpawnInsight>,
 ) {
     for _ in reader.read() {
         let Ok(selected_character) = &selected_character.get_single() else {
@@ -754,9 +832,289 @@ fn aquire_insight(
 
         insight.character = Some(selected_character.0.clone());
 
+        commands.run_system(spawn_insight.0);
+
         info!("aquiring insight");
         state.heart_size -= 10.;
     }
+}
+
+#[derive(Component)]
+struct InsightNode;
+
+pub fn spawn_insight(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    insight: Res<Insight>,
+    characters: Res<Assets<Character>>,
+    state: Res<KingdomState>,
+) {
+    let window = &mut primary_window.single_mut();
+    // window.cursor.visible = false;
+
+    let character = characters.get(insight.character.as_ref().unwrap()).unwrap();
+    let request = character.request(state.day).unwrap();
+
+    commands.spawn(AudioBundle {
+        source: server.load("audio/heartbeat.wav"),
+        settings: PlaybackSettings::default(),
+    });
+
+    commands.spawn((
+        InsightNode,
+        SpriteBundle {
+            texture: server.load("ui/insight_box.png"),
+            transform: Transform::from_xyz(RES_WIDTH as f32 / -2., RES_HEIGHT as f32 / 2., 500.),
+            ..Default::default()
+        },
+        HIGH_RES_LAYER,
+    ));
+
+    commands.spawn((
+        InsightNode,
+        SpriteBundle {
+            texture: server.load("ui/insight_box.png"),
+            transform: Transform::from_xyz(RES_WIDTH as f32 / 2., RES_HEIGHT as f32 / 2., 500.),
+            ..Default::default()
+        },
+        HIGH_RES_LAYER,
+    ));
+
+    commands
+        .ui_builder(UiRoot)
+        .column(|column| {
+            column.row(|row| {
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(
+                            server.load("ui/Skill Tree/Icons/Unlocked/x2/Unlocked11.png"),
+                        ),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::Start);
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!(" -{}", request.no.heart_size.abs() as u32),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+            });
+
+            column.row(|row| {
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(server.load("ui/happiness.png")),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::Start);
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!(" -{}", request.no.happiness.abs() as u32),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+            });
+
+            column.row(|row| {
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(server.load("ui/wealth.png")),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::Start);
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!(" -{}", request.no.wealth.abs() as u32),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+            });
+
+            column.row(|row| {
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(
+                            server.load("ui/Skill Tree/Icons/Unlocked/x2/Unlocked2.png"),
+                        ),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::Start);
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!(
+                            " -{}",
+                            KingdomState::calculate_prosperity(
+                                request.no.happiness.abs(),
+                                request.no.wealth.abs()
+                            )
+                        ),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+            });
+        })
+        .style()
+        // .column_gap(Val::Px(200.))
+        // .row_gap(Val::Px(200.))
+        .justify_content(JustifyContent::Start);
+
+    commands
+        .ui_builder(UiRoot)
+        .column(|column| {
+            column.row(|row| {
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!("+{} ", request.yes.heart_size.abs() as u32),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(
+                            server.load("ui/Skill Tree/Icons/Unlocked/x2/Unlocked11.png"),
+                        ),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::End);
+            });
+
+            column.row(|row| {
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!("+{} ", request.yes.happiness.abs() as u32),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(server.load("ui/happiness.png")),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::End);
+            });
+
+            column.row(|row| {
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!("+{} ", request.yes.wealth.abs() as u32),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(server.load("ui/wealth.png")),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::End);
+            });
+
+            column.row(|row| {
+                row.spawn((
+                    UiNode,
+                    TextBundle::from_section(
+                        &format!(
+                            "+{} ",
+                            KingdomState::calculate_prosperity(
+                                request.yes.happiness.abs(),
+                                request.yes.wealth.abs()
+                            )
+                        ),
+                        TextStyle {
+                            font_size: 30.0,
+                            font: server.load(FONT_PATH),
+                            ..Default::default()
+                        },
+                    ),
+                ));
+                row.spawn((
+                    InsightNode,
+                    ImageBundle {
+                        image: UiImage::new(
+                            server.load("ui/Skill Tree/Icons/Unlocked/x2/Unlocked2.png"),
+                        ),
+                        z_index: ZIndex::Global(100),
+                        style: Style { ..default() },
+                        ..Default::default()
+                    },
+                ))
+                .style()
+                .justify_content(JustifyContent::End);
+            });
+        })
+        .style()
+        .justify_content(JustifyContent::Start)
+        .right(Val::Percent(-95.2));
 }
 
 fn display_insight(
@@ -768,7 +1126,7 @@ fn display_insight(
         if let Ok(selected_character) = selected_character.get_single() {
             if selected_character.0 == *character {
                 if let Some(character) = characters.get(character) {
-                    println!("displaying insight: {:?}", character.name);
+                    // println!("displaying insight: {:?}", character.name);
                 }
             }
         }

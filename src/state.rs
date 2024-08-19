@@ -83,7 +83,11 @@ impl KingdomState {
 
     /// Calculate the overall prosperity based on wealth and happiness.
     pub fn prosperity(&self) -> f32 {
-        self.happiness + self.wealth
+        Self::calculate_prosperity(self.happiness, self.wealth)
+    }
+
+    pub fn calculate_prosperity(happiness: f32, wealth: f32) -> f32 {
+        happiness + wealth
     }
 
     pub fn day_name(&self) -> &'static str {

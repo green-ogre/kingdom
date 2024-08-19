@@ -38,7 +38,7 @@ fn main() {
             StatePlugin,
             UiPlugin,
             PixelPerfectPlugin,
-            WorldInspectorPlugin::new(),
+            // WorldInspectorPlugin::new(),
             MainMenuPlugin,
         ))
         .init_state::<GameState>()
