@@ -1,6 +1,6 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
 use crate::character::{self, Character, CharacterUi, Characters, SelectedCharacter};
-use crate::music::MusicEvent;
+use crate::music::{MusicEvent, MusicKind};
 use crate::pixel_perfect::{
     InGameCamera, OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH,
 };
@@ -133,11 +133,13 @@ fn show_night(
     mut commands: Commands,
     mut nigth_village_sprite: Query<&mut Visibility, With<BackgroundTownNight>>,
     mut crowds: Query<&mut Visibility, (With<Crowd>, Without<BackgroundTownNight>)>,
+    mut music: EventWriter<MusicEvent>,
 ) {
     *nigth_village_sprite.single_mut() = Visibility::Visible;
     for mut vis in crowds.iter_mut() {
         *vis = Visibility::Hidden;
     }
+    music.send(MusicEvent::FadeInSecs(crate::music::MusicKind::Dream, 3.));
     let system = commands.register_one_shot_system(handle_night);
     commands.insert_resource(FadeFromBlack::new(0.5, 10, 3., system));
 }
@@ -151,10 +153,15 @@ fn handle_night(mut commands: Commands, camera: Query<Entity, With<InGameCamera>
 #[derive(Resource, Default)]
 struct DayNumberUi(Option<Timer>);
 
-fn enter_morning(mut commands: Commands, server: Res<AssetServer>) {
+fn enter_morning(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut music: EventWriter<MusicEvent>,
+) {
     info!("enter morning");
+    music.send(MusicEvent::FadeOutSecs(5.));
     let system = commands.register_one_shot_system(handle_morning);
-    commands.insert_resource(FadeToBlack::new(0.5, 4, 0., system));
+    commands.insert_resource(FadeToBlack::new(0.5, 10, 0., system));
     commands.spawn(AudioBundle {
         source: server.load("audio/church_bells.wav"),
         settings: PlaybackSettings::default().with_volume(Volume::new(0.5)),
@@ -181,6 +188,7 @@ fn handle_morning(
             Without<NextDayUi>,
         ),
     >,
+    mut music: EventWriter<MusicEvent>,
 ) {
     info!("handle morning");
 
@@ -214,6 +222,7 @@ fn handle_morning(
     *vis = Visibility::Visible;
     text.sections[0].value = state.day_name().to_string();
 
+    music.send(MusicEvent::FadeInSecs(MusicKind::Day, 5.));
     let system = commands.register_one_shot_system(enter_day);
     commands.insert_resource(FadeFromBlack::new(0.5, 4, 3., system));
     day_number_ui.0 = None;
@@ -222,7 +231,7 @@ fn handle_morning(
 fn enter_day(
     mut commands: Commands,
     characters: Res<Characters>,
-    mut music: EventWriter<MusicEvent>,
+    // mut music: EventWriter<MusicEvent>,
     mut next_day_ui: Query<(&mut Visibility, &mut Text), With<NextDayUi>>,
 ) {
     info!("enter day");
@@ -232,7 +241,7 @@ fn enter_day(
 
     commands.run_system(characters.choose_new_character);
     commands.next_state(GameState::Day);
-    music.send(MusicEvent::Play);
+    // music.send(MusicEvent::Play);
 }
 
 #[derive(Resource)]
