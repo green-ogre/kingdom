@@ -13,16 +13,18 @@ pub struct TypeWriter {
     pub slice_range: Range<usize>,
     pub last_len: usize,
     pub sfx: Handle<AudioSource>,
+    pub pitch_offset: f32,
 }
 
 impl TypeWriter {
     pub fn new(string: String, speed: f32, sfx: Handle<AudioSource>) -> Self {
         Self {
             timer: Timer::from_seconds(speed, TimerMode::Repeating),
-            string,
+            string: string.trim().into(),
             slice_range: 0..0,
             last_len: 0,
             is_finished: false,
+            pitch_offset: 0.,
             sfx,
         }
     }
@@ -45,7 +47,8 @@ impl TypeWriter {
             commands.spawn(AudioBundle {
                 source: self.sfx.clone(),
                 settings: PlaybackSettings {
-                    speed: rand::thread_rng().gen_range(0.95..1.05),
+                    speed: rand::thread_rng()
+                        .gen_range((0.95 + self.pitch_offset)..(1.05 + self.pitch_offset)),
                     ..Default::default()
                 },
             });
@@ -63,11 +66,22 @@ impl TypeWriter {
 
     pub fn slice_with_line_wrap(&self) -> String {
         let mut slice = self.string[self.slice_range.clone()].to_owned();
-        if let Some(last) = self.string.split_whitespace().last() {
-            if let Some(last_of_slice) = slice.split_whitespace().last() {
-                for _ in 0..last.len().saturating_sub(last_of_slice.len()) {
-                    slice.push(' ');
+        let padding = self
+            .string
+            .chars()
+            .enumerate()
+            .skip(slice.len())
+            .find_map(|(i, c)| {
+                if c == ' ' {
+                    Some(i - slice.len())
+                } else {
+                    None
                 }
+            })
+            .unwrap_or_else(|| 0);
+        if slice.chars().last() != Some(' ') {
+            for _ in 0..padding {
+                slice.push(' ');
             }
         }
 

@@ -40,7 +40,7 @@ fn main() {
             StatePlugin,
             UiPlugin,
             PixelPerfectPlugin,
-            // WorldInspectorPlugin::new(),
+            WorldInspectorPlugin::new(),
             MainMenuPlugin,
             AudioPlugin,
             music::MusicPlugin,
@@ -64,6 +64,9 @@ enum GameState {
     AssetLoading,
     Main,
     MainMenu,
+    Night,
+    Day,
+    Morning,
     Loose,
     Win,
 }

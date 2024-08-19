@@ -13,7 +13,7 @@ use bevy::ui::ContentSize;
 use bevy::window::PrimaryWindow;
 use bevy::{audio::Volume, prelude::*};
 use bevy_tweening::*;
-use lens::{TransformRotateZLens, TransformScaleLens};
+use lens::{SpriteColorLens, TransformRotateZLens, TransformScaleLens};
 use rand::Rng;
 use sickle_ui::ui_commands::UpdateStatesExt;
 use sickle_ui::{prelude::*, SickleUiPlugin};
@@ -23,6 +23,8 @@ use std::time::Duration;
 use crate::GameState;
 
 const INSIGHT_CHARGE_TIME: f32 = 2.0;
+const CROWD_VOLUME: f32 = 0.025;
+const CRICKET_VOLUME: f32 = 0.25;
 
 pub struct UiPlugin;
 
@@ -44,27 +46,31 @@ impl Plugin for UiPlugin {
             .add_systems(
                 Update,
                 (heart_ui, mask_ui, display_insight_tooltip, display_insight)
-                    .run_if(in_state(GameState::Main)),
+                    .run_if(in_state(GameState::Day)),
             )
             .add_systems(
+                Update,
+                component_animator_system::<AudioSink>.in_set(AnimationSystem::AnimationUpdate),
+            )
+            .add_systems(OnEnter(GameState::Night), enter_night)
+            .add_systems(Update, (fade_to_black, fade_from_black))
+            .add_systems(
                 PostUpdate,
-                (aquire_insight, fade_to_black, fade_from_black).run_if(in_state(GameState::Main)),
+                (aquire_insight,).run_if(in_state(GameState::Day)),
             )
             .add_systems(
                 PreUpdate,
-                (should_show_selection_ui, end_day_and_enter_next)
-                    .run_if(in_state(GameState::Main)),
+                (should_show_selection_ui).run_if(in_state(GameState::Day)),
             )
+            .add_systems(OnEnter(GameState::Morning), enter_morning)
             .add_systems(FixedPreUpdate, (animate_clouds, animate_crowd))
-            .add_systems(Update, selection_ui.run_if(in_state(GameState::Main)))
+            .add_systems(Update, selection_ui.run_if(in_state(GameState::Day)))
             .add_systems(OnEnter(GameState::Win), (set_world_to_black, end_animation))
             .add_systems(
                 OnEnter(GameState::Loose),
                 (set_world_to_black, end_animation).chain(),
             )
             .add_event::<AquireInsight>()
-            .add_event::<FinishedFadeFromBlack>()
-            .add_event::<FinishedFadeToBlack>()
             // .insert_resource(
             //     ColorScheme::<Mana>::new().foreground_color(ForegroundColor::Static(Color::BLUE)),
             // )
@@ -73,68 +79,172 @@ impl Plugin for UiPlugin {
     }
 }
 
-#[derive(Resource, Default)]
-struct DayNumberUi(Option<Timer>);
+struct AudioVolumeLens {
+    start: f32,
+    end: f32,
+}
 
-fn end_day_and_enter_next(
-    mut commands: Commands,
-    mut end_day: EventReader<EndDay>,
-    mut finish_fade_to_black: EventReader<FinishedFadeToBlack>,
-    mut finish_fade_from_black: EventReader<FinishedFadeFromBlack>,
-    mut next_day_ui: Query<(&mut Visibility, &mut Text), With<NextDayUi>>,
-    mut day_number_ui: ResMut<DayNumberUi>,
-    characters: Res<Characters>,
-    state: Res<KingdomState>,
-    time: Res<Time>,
-    server: Res<AssetServer>,
-    mut music: EventWriter<MusicEvent>,
-) {
-    for _ in end_day.read() {
-        commands.insert_resource(FadeToBlack::new(0.5, 4));
-        commands.spawn(AudioBundle {
-            source: server.load("audio/church_bells.wav"),
-            settings: PlaybackSettings::default().with_volume(Volume::new(0.5)),
-        });
-        music.send(MusicEvent::FadeOutSecs(5.));
-    }
+use bevy_tweening::Lens;
 
-    for _ in finish_fade_to_black.read() {
-        let (mut vis, mut text) = next_day_ui.single_mut();
-        *vis = Visibility::Visible;
-        text.sections[0].value = state.day_name().to_string();
-        day_number_ui.0 = Some(Timer::from_seconds(4., TimerMode::Once));
-    }
-
-    if let Some(timer) = &mut day_number_ui.0 {
-        timer.tick(time.delta());
-        if timer.finished() {
-            commands.insert_resource(FadeFromBlack::new(0.5, 4));
-            day_number_ui.0 = None;
-
-            let (mut vis, _) = next_day_ui.single_mut();
-            *vis = Visibility::Hidden;
-        }
-    }
-
-    for _ in finish_fade_from_black.read() {
-        commands.run_system(characters.choose_new_character);
-        music.send(MusicEvent::Play);
+impl Lens<AudioSink> for AudioVolumeLens {
+    fn lerp(&mut self, target: &mut dyn Targetable<AudioSink>, ratio: f32) {
+        let volume = self.start + (self.end - self.start) * ratio;
+        target.set_volume(volume);
     }
 }
 
-#[derive(Event)]
-pub struct FinishedFadeToBlack;
+fn enter_night(
+    mut commands: Commands,
+    mut music: EventWriter<MusicEvent>,
+    crowd_audio: Query<Entity, With<CrowdAudio>>,
+    cricket_audio: Query<Entity, With<CricketAudio>>,
+) {
+    let system = commands.register_one_shot_system(show_night);
+    commands.insert_resource(FadeToBlack::new(0.5, 10, 0., system));
+    music.send(MusicEvent::FadeOutSecs(5.));
+    commands
+        .entity(crowd_audio.single())
+        .insert(Animator::new(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(5.),
+            AudioVolumeLens {
+                start: CROWD_VOLUME,
+                end: 0.,
+            },
+        )));
+    commands
+        .entity(cricket_audio.single())
+        .insert(Animator::new(Delay::new(Duration::from_secs_f32(3.)).then(
+            Tween::new(
+                EaseMethod::Linear,
+                Duration::from_secs_f32(5.),
+                AudioVolumeLens {
+                    start: 0.,
+                    end: CRICKET_VOLUME,
+                },
+            ),
+        )));
+    info!("entering night");
+}
+
+fn show_night(
+    mut commands: Commands,
+    mut nigth_village_sprite: Query<&mut Visibility, With<BackgroundTownNight>>,
+    mut crowds: Query<&mut Visibility, (With<Crowd>, Without<BackgroundTownNight>)>,
+) {
+    *nigth_village_sprite.single_mut() = Visibility::Visible;
+    for mut vis in crowds.iter_mut() {
+        *vis = Visibility::Hidden;
+    }
+    let system = commands.register_one_shot_system(handle_night);
+    commands.insert_resource(FadeFromBlack::new(0.5, 10, 3., system));
+}
+
+fn handle_night(mut commands: Commands) {
+    info!("entered night");
+    commands.next_state(GameState::Morning);
+    info!("exiting!")
+}
+
+#[derive(Resource, Default)]
+struct DayNumberUi(Option<Timer>);
+
+fn enter_morning(mut commands: Commands, server: Res<AssetServer>) {
+    info!("enter morning");
+    let system = commands.register_one_shot_system(handle_morning);
+    commands.insert_resource(FadeToBlack::new(0.5, 4, 0., system));
+    commands.spawn(AudioBundle {
+        source: server.load("audio/church_bells.wav"),
+        settings: PlaybackSettings::default().with_volume(Volume::new(0.5)),
+    });
+    // music.send(MusicEvent::FadeOutSecs(5.));
+}
+
+fn handle_morning(
+    mut commands: Commands,
+    mut next_day_ui: Query<(&mut Visibility, &mut Text), With<NextDayUi>>,
+    mut day_number_ui: ResMut<DayNumberUi>,
+    state: Res<KingdomState>,
+    crowd_audio: Query<Entity, With<CrowdAudio>>,
+    cricket_audio: Query<Entity, With<CricketAudio>>,
+    mut nigth_village_sprite: Query<
+        &mut Visibility,
+        (With<BackgroundTownNight>, Without<NextDayUi>),
+    >,
+    mut crowds: Query<
+        &mut Visibility,
+        (
+            With<Crowd>,
+            Without<BackgroundTownNight>,
+            Without<NextDayUi>,
+        ),
+    >,
+) {
+    info!("handle morning");
+
+    commands
+        .entity(cricket_audio.single())
+        .insert(Animator::new(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(5.),
+            AudioVolumeLens {
+                start: CRICKET_VOLUME,
+                end: 0.,
+            },
+        )));
+    commands.entity(crowd_audio.single()).insert(Animator::new(
+        Delay::new(Duration::from_secs_f32(3.)).then(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(5.),
+            AudioVolumeLens {
+                start: 0.,
+                end: CROWD_VOLUME,
+            },
+        )),
+    ));
+
+    *nigth_village_sprite.single_mut() = Visibility::Hidden;
+    for mut vis in crowds.iter_mut() {
+        *vis = Visibility::Visible;
+    }
+
+    let (mut vis, mut text) = next_day_ui.single_mut();
+    *vis = Visibility::Visible;
+    text.sections[0].value = state.day_name().to_string();
+
+    let system = commands.register_one_shot_system(enter_day);
+    commands.insert_resource(FadeFromBlack::new(0.5, 4, 3., system));
+    day_number_ui.0 = None;
+
+    let (mut vis, _) = next_day_ui.single_mut();
+    *vis = Visibility::Hidden;
+}
+
+fn enter_day(
+    mut commands: Commands,
+    characters: Res<Characters>,
+    mut music: EventWriter<MusicEvent>,
+) {
+    info!("enter day");
+    commands.run_system(characters.choose_new_character);
+    commands.next_state(GameState::Day);
+    music.send(MusicEvent::Play);
+}
 
 #[derive(Resource)]
 pub struct FadeToBlack {
+    system_on_complete: SystemId,
+    delay: f32,
     timer_per_step: Timer,
     total_steps: u32,
     steps: u32,
 }
 
 impl FadeToBlack {
-    pub fn new(secs_per_step: f32, steps: u32) -> Self {
+    pub fn new(secs_per_step: f32, steps: u32, delay: f32, system_on_complete: SystemId) -> Self {
         Self {
+            delay,
+            system_on_complete,
             timer_per_step: Timer::from_seconds(secs_per_step, TimerMode::Repeating),
             total_steps: steps,
             steps,
@@ -170,9 +280,13 @@ fn fade_to_black(
     fade_to_black: Option<ResMut<FadeToBlack>>,
     mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
     time: Res<Time>,
-    mut writer: EventWriter<FinishedFadeToBlack>,
 ) {
     if let Some(mut fade) = fade_to_black {
+        fade.delay -= time.delta_seconds();
+        if fade.delay > 0.0 {
+            return;
+        }
+
         fade.timer_per_step.tick(time.delta());
         if fade.timer_per_step.finished() {
             fade.steps = fade.steps.saturating_sub(1);
@@ -197,26 +311,27 @@ fn fade_to_black(
 
             if fade.steps == 0 {
                 commands.remove_resource::<FadeToBlack>();
-                writer.send(FinishedFadeToBlack);
+                commands.run_system(fade.system_on_complete);
                 return;
             }
         }
     }
 }
 
-#[derive(Event)]
-pub struct FinishedFadeFromBlack;
-
 #[derive(Resource)]
 pub struct FadeFromBlack {
+    system_on_complete: SystemId,
+    delay: f32,
     timer_per_step: Timer,
     total_steps: u32,
     steps: u32,
 }
 
 impl FadeFromBlack {
-    pub fn new(secs_per_step: f32, steps: u32) -> Self {
+    pub fn new(secs_per_step: f32, steps: u32, delay: f32, system_on_complete: SystemId) -> Self {
         Self {
+            system_on_complete,
+            delay,
             timer_per_step: Timer::from_seconds(secs_per_step, TimerMode::Repeating),
             total_steps: steps,
             steps,
@@ -231,9 +346,13 @@ fn fade_from_black(
     fade_from_black: Option<ResMut<FadeFromBlack>>,
     mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
     time: Res<Time>,
-    mut writer: EventWriter<FinishedFadeFromBlack>,
 ) {
     if let Some(mut fade) = fade_from_black {
+        fade.delay -= time.delta_seconds();
+        if fade.delay > 0.0 {
+            return;
+        }
+
         fade.timer_per_step.tick(time.delta());
         if fade.timer_per_step.finished() {
             fade.steps = fade.steps.saturating_sub(1);
@@ -259,7 +378,7 @@ fn fade_from_black(
 
             if fade.steps == 0 {
                 commands.remove_resource::<FadeFromBlack>();
-                writer.send(FinishedFadeFromBlack);
+                commands.run_system(fade.system_on_complete);
                 return;
             }
         }
@@ -270,7 +389,7 @@ fn fade_from_black(
 struct HeartUi;
 
 pub const HEART_SCALE: f32 = 16.;
-pub const FONT_PATH: &'static str = "ui/alagard.ttf";
+pub const FONT_PATH: &'static str = "ui/small_pixel-7.ttf";
 
 #[derive(Component)]
 pub struct UiNode;
@@ -282,7 +401,7 @@ pub struct FadeToBlackSprite;
 struct NextDayUi;
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
-    // state.heart_size = 1.;
+    commands.next_state(GameState::Night);
 
     let id = commands.register_one_shot_system(spawn_insight);
     commands.insert_resource(SpawnInsight(id));
@@ -402,18 +521,19 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut writer: EventWrit
             "",
             TextStyle {
                 font: server.load(FONT_PATH),
-                font_size: 30.0,
+                font_size: 49.,
                 ..default()
             },
         )
         .with_text_justify(JustifyText::Left)
         .with_style(Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(550.),
-            top: Val::Px(900.),
-            max_width: Val::Px(750.),
+            left: Val::Px(472.),
+            top: Val::Px(702.7),
+            max_width: Val::Px(980.7),
             ..Default::default()
         }),
+        Name::new("Character Text"),
         CharacterUi::Request,
         UiNode,
     ));
@@ -484,7 +604,17 @@ fn setup_background(
             ..Default::default()
         },
         BackgroundTown,
-        UiNode,
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("ui/night_background.png"),
+            transform: Transform::from_translation(Vec3::default().with_z(-49.)),
+            visibility: Visibility::Hidden,
+            ..Default::default()
+        },
+        BackgroundTownNight,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -502,7 +632,6 @@ fn setup_background(
             index: 0,
         },
         Crowd::Three(Timer::from_seconds(0.3, TimerMode::Repeating)),
-        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -517,7 +646,6 @@ fn setup_background(
             index: 0,
         },
         Crowd::Two(Timer::from_seconds(0.3, TimerMode::Repeating)),
-        UiNode,
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -541,11 +669,23 @@ fn setup_background(
             source: server.load("audio/crowd.mp3"),
             settings: PlaybackSettings {
                 mode: PlaybackMode::Loop,
-                volume: Volume::new(0.025),
+                volume: Volume::new(CROWD_VOLUME),
                 ..Default::default()
             },
         },
         CrowdAudio,
+    ));
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/cricket-chirp-56209.mp3"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                volume: Volume::new(0.),
+                ..Default::default()
+            },
+        },
+        CricketAudio,
     ));
 }
 
@@ -554,6 +694,9 @@ struct BackgroundClouds;
 
 #[derive(Component)]
 struct BackgroundTown;
+
+#[derive(Component)]
+struct BackgroundTownNight;
 
 fn animate_clouds(mut clouds: Query<&mut Transform, With<BackgroundClouds>>, time: Res<Time>) {
     const SPEED: f32 = 0.5;
@@ -575,6 +718,9 @@ enum Crowd {
 
 #[derive(Component)]
 struct CrowdAudio;
+
+#[derive(Component)]
+struct CricketAudio;
 
 fn animate_crowd(mut crowds: Query<(&mut Crowd, &mut TextureAtlas)>, time: Res<Time>) {
     for (crowd, mut atlas) in crowds.iter_mut() {

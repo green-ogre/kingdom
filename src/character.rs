@@ -32,7 +32,7 @@ impl Plugin for CharacterPlugin {
                 (
                     load_characters,
                     crate::state::initialize_filters,
-                    choose_new_character,
+                    // choose_new_character,
                 )
                     .chain(),
             )
@@ -40,8 +40,9 @@ impl Plugin for CharacterPlugin {
             .add_systems(
                 Update,
                 (update_character_sprite, character_ui, handle_slide_intro)
-                    .run_if(in_state(GameState::Main)),
-            );
+                    .run_if(in_state(GameState::Day)),
+            )
+            .register_type::<CharacterUi>();
     }
 }
 
@@ -270,9 +271,10 @@ enum CharacterSprite {
 #[derive(Component)]
 struct SelectedCharacterSprite;
 
-#[derive(Component)]
+#[derive(Component, Reflect, Default)]
 pub enum CharacterUi {
     Name,
+    #[default]
     Request,
 }
 
