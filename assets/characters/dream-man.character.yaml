@@ -20,6 +20,7 @@ requests:
       filter: summon_yes
       yes:
       no:
+      response_handlers: [set_cardiac_dream]
     - text: |
         Your Majesty's cardiac affliction is rather crude work. How many men have been thus burdened, I wonder. No matter, we will use it to our advantage. Please, present You Grace's hand.
       yes:

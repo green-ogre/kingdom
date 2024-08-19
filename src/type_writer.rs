@@ -49,6 +49,7 @@ impl TypeWriter {
                 settings: PlaybackSettings {
                     speed: rand::thread_rng()
                         .gen_range((0.95 + self.pitch_offset)..(1.05 + self.pitch_offset)),
+                    mode: bevy::audio::PlaybackMode::Despawn,
                     ..Default::default()
                 },
             });
