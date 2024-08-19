@@ -574,7 +574,7 @@ fn setup_background(
     commands.spawn((
         SpriteBundle {
             texture: server.load("ui/night_background.png"),
-            transform: Transform::from_translation(Vec3::default().with_z(-49.)),
+            transform: Transform::from_translation(Vec3::default().with_z(-49.).with_y(-1.)),
             visibility: Visibility::Hidden,
             ..Default::default()
         },
@@ -616,7 +616,7 @@ fn setup_background(
     commands.spawn((
         SpriteBundle {
             texture: server.load("crowd_layer_1.png"),
-            transform: Transform::from_translation(Vec3::new(0., 0., -20.)),
+            transform: Transform::from_translation(Vec3::new(0., -1., -20.)),
             ..Default::default()
         },
         TextureAtlas {

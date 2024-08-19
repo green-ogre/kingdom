@@ -186,6 +186,26 @@ pub fn choose_new_character(
                         info!("transition to morning");
                         commands.entity(entity).despawn()
                     }
+
+                    for (entity, transform) in prev_sel_sprite.iter() {
+                        commands.entity(entity).remove::<SelectedCharacterSprite>();
+
+                        let slide = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_secs_f32(1.5),
+                            TransformPositionLens {
+                                start: transform.translation,
+                                end: Vec3::default()
+                                    .with_x(-300.)
+                                    .with_z(transform.translation.z),
+                            },
+                        );
+
+                        commands.entity(entity).insert(Animator::new(
+                            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+                        ));
+                    }
+
                     return;
                 }
             }
