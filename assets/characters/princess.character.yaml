@@ -1,6 +1,6 @@
 name: Crown Princess
 class: Royal
-sprite_path: "characters/princess"
+sprite_path: "characters/images/princess"
 requests:
   - - text: |
         My King, before us lies an unusual opportunity. I've received word that the Lower Kingdom, which Your Majesty may recall is especially brutal, seeks our alliance. We would do well to graciously accept. We could use a few more honored guests in our court, if it please Your majesty.

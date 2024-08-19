@@ -1,6 +1,6 @@
 name: Prince
 class: Royal
-sprite_path: "characters/prince"
+sprite_path: "characters/images/prince"
 requests:
   - - text: |
         Deareset father, would you sanction a spring festival for the people? A time for merrymaking would surely raise their spirits!

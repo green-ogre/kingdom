@@ -1,6 +1,6 @@
 name: Tax man
 class: Merchant
-sprite_path: "characters/tax_collector"
+sprite_path: "characters/images/tax_collector"
 requests:
   - - text: |
         Your Majesty, our last harvest was bountiful beyond all expectation. Shall we raise quotas for this year's harvest?
