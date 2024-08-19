@@ -21,9 +21,6 @@ impl Plugin for DecisionPlugin {
 }
 
 #[derive(Component)]
-struct DecisionUi;
-
-#[derive(Component)]
 pub struct ShowSelectionUi;
 
 #[derive(Debug, Event, Clone, PartialEq, Eq, Reflect)]

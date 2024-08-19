@@ -1,12 +1,19 @@
-use std::time::Duration;
-
 use super::UiNode;
-use crate::{pixel_perfect::PIXEL_PERFECT_LAYER, GameState};
+use crate::{
+    pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER},
+    state::KingdomState,
+    time_state::TimeState,
+    ui::hex_to_vec4,
+    GameState,
+};
 use bevy::{
     audio::{PlaybackMode, Volume},
     prelude::*,
 };
+use bevy_hanabi::prelude::*;
+use bevy_hanabi::EffectAsset;
 use rand::Rng;
+use std::time::Duration;
 
 pub const CROWD_VOLUME: f32 = 0.025;
 pub const CRICKET_VOLUME: f32 = 0.25;
@@ -17,6 +24,115 @@ impl Plugin for BackgroundPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Main), setup_background)
             .add_systems(FixedPreUpdate, (animate_clouds, animate_crowd));
+        // .add_systems(OnEnter(TimeState::Morning), setup_background_particles)
+        // .add_systems(
+        //     OnEnter(TimeState::Evening),
+        //     setup_background_particles_for_dream,
+        // );
+    }
+}
+
+#[derive(Component)]
+pub struct BackgroundParticles;
+
+pub fn setup_background_particles(
+    mut commands: Commands,
+    mut effects: ResMut<Assets<EffectAsset>>,
+    prev_particles: Query<Entity, With<BackgroundParticles>>,
+    state: Res<KingdomState>,
+) {
+    let mut module = Module::default();
+
+    let mut gradient = Gradient::new();
+
+    let color = match state.day {
+        0 => hex_to_vec4(0xa8ca58),
+        1 => hex_to_vec4(0xcf573c),
+        3 => hex_to_vec4(0xebede9),
+        _ => hex_to_vec4(0xa8ca58),
+    };
+
+    gradient.add_key(0.0, color);
+    gradient.add_key(1.0, color.with_w(0.));
+    let init_pos = SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO),
+        radius: module.lit(150.),
+        dimension: ShapeDimension::Surface,
+    };
+    let init_vel = SetVelocityTangentModifier {
+        origin: module.lit(Vec3::new(100., 100., 0.)),
+        axis: module.lit(Vec3::new(0., 0., 1.)),
+        speed: module.lit(20.),
+    };
+    let init_size = SetSizeModifier {
+        size: CpuValue::Uniform((Vec2::splat(1.), Vec2::splat(2.))),
+    };
+    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, module.lit(10.));
+    let effect = EffectAsset::new(vec![100], Spawner::rate(5.0.into()), module)
+        .init(init_pos)
+        .init(init_vel)
+        .init(init_lifetime)
+        .render(init_size)
+        .render(ColorOverLifetimeModifier { gradient });
+    let effect_asset = effects.add(effect);
+
+    info!("spawning background particles");
+    commands.spawn((
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(-20.)),
+            ..Default::default()
+        },
+        BackgroundParticles,
+    ));
+
+    for entity in prev_particles.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+pub fn setup_background_particles_for_dream(
+    mut commands: Commands,
+    mut effects: ResMut<Assets<EffectAsset>>,
+    prev_particles: Query<Entity, With<BackgroundParticles>>,
+) {
+    let mut module = Module::default();
+
+    let mut gradient = Gradient::new();
+    let color = hex_to_vec4(0xFF0000);
+    gradient.add_key(0.0, color);
+    gradient.add_key(1.0, color.with_w(0.));
+    let init_pos = SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO.with_x(-100.)),
+        radius: module.lit(80.),
+        dimension: ShapeDimension::Surface,
+    };
+    let init_vel = SetAttributeModifier {
+        attribute: Attribute::VELOCITY,
+        value: module.lit(Vec3::ZERO.with_x(100.).with_y(-10.)),
+    };
+    let init_size = SetSizeModifier {
+        size: CpuValue::Uniform((Vec2::splat(1.), Vec2::splat(2.))),
+    };
+    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, module.lit(4.));
+    let effect = EffectAsset::new(vec![500], Spawner::rate(10.0.into()), module)
+        .init(init_pos)
+        .init(init_vel)
+        .init(init_lifetime)
+        .render(init_size)
+        .render(ColorOverLifetimeModifier { gradient });
+    let effect_asset = effects.add(effect);
+
+    info!("spawning background particles for dream");
+    commands.spawn((
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(-20.)),
+            ..Default::default()
+        },
+        BackgroundParticles,
+    ));
+
+    for entity in prev_particles.iter() {
+        commands.entity(entity).despawn();
     }
 }
 

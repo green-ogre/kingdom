@@ -1,7 +1,7 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
 use crate::character::{CharacterUi, SelectedCharacter};
-use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER};
-use crate::state::{KingdomState, NewHeartSize};
+use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH};
+use crate::state::{KingdomState, NewHeartSize, MAX_HAPPINESS, MAX_HEART_SIZE, MAX_WEALTH};
 use crate::time_state::TimeState;
 use crate::{CharacterSet, GameState};
 use background::BackgroundPlugin;
@@ -11,7 +11,8 @@ use bevy::{audio::Volume, prelude::*};
 use bevy_tweening::*;
 use decision::{DecisionPlugin, ShowSelectionUi};
 use insight::{Insight, InsightPlugin};
-use lens::{TransformRotateZLens, TransformScaleLens};
+use lens::{SpriteColorLens, TransformRotateZLens, TransformScaleLens};
+use serde::Deserialize;
 use sickle_ui::SickleUiPlugin;
 use std::time::Duration;
 
@@ -52,10 +53,19 @@ impl Plugin for UiPlugin {
     }
 }
 
+pub fn hex_to_vec4(hex: u32) -> Vec4 {
+    Vec4::new(
+        ((hex >> 16) & 0xFF) as f32 / 255.,
+        ((hex >> 8) & 0xFF) as f32 / 255.,
+        (hex & 0xFF) as f32 / 255.,
+        1.0,
+    )
+}
+
 #[derive(Component)]
 pub struct HeartUi;
 
-pub const HEART_SCALE: f32 = 16.;
+pub const HEART_SCALE: f32 = 2.;
 pub const FONT_PATH: &'static str = "ui/small_pixel-7.ttf";
 
 #[derive(Component)]
@@ -175,7 +185,10 @@ pub fn update_cursor(
     mut selected_character: Query<(Entity, &SelectedCharacter)>,
     server: Res<AssetServer>,
     mut insight_bar: Query<(Entity, &mut Transform, &mut InsightBar)>,
-    mut insight_bar_border: Query<Entity, With<InsightBarBorder>>,
+    mut insight_bar_border: Query<
+        (Entity, &mut Transform),
+        (With<InsightBarBorder>, Without<InsightBar>),
+    >,
     insight_sfx: Query<Entity, With<InsightChargeSfx>>,
     state: Res<KingdomState>,
 ) {
@@ -192,22 +205,33 @@ pub fn update_cursor(
         style.left = Val::Px(left);
         style.top = Val::Px(top);
 
-        tool_tip_style.left = Val::Px(left - 25.);
-        tool_tip_style.top = Val::Px(top + 30.);
+        tool_tip_style.left = Val::Px(left + 200.);
+        tool_tip_style.top = Val::Px(top + 100.);
 
         // println!("{top:?}");
         if top < -350. && !selected_character.is_empty() {
             commands.entity(entity).insert(CursorCanDecide);
             insight.grace.tick(time.delta());
 
-            if let Ok((_, mut sprite_transform, mut bar)) = insight_bar.get_single_mut() {
-                bar.0 = insight.grace.remaining().as_secs_f32()
-                    / insight.grace.duration().as_secs_f32();
-                sprite_transform.scale.x = bar.0 / 1.0 * 0.5;
+            if let Ok((_, mut fill_transform, mut bar)) = insight_bar.get_single_mut() {
+                if let Ok((_, mut border_transform)) = insight_bar_border.get_single_mut() {
+                    bar.0 = insight.grace.remaining().as_secs_f32()
+                        / insight.grace.duration().as_secs_f32();
+                    fill_transform.scale.x = (1.0 - bar.0) * 0.5;
+
+                    border_transform.translation.x = world_position.x / 8. - RES_WIDTH as f32 / 2.;
+                    border_transform.translation.y =
+                        -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.;
+
+                    fill_transform.translation.x =
+                        world_position.x / 8. - RES_WIDTH as f32 / 2. - (74. / 2. * bar.0);
+                    fill_transform.translation.y =
+                        -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.;
+                }
             }
 
             for input in reader.read() {
-                if input.button == MouseButton::Right {
+                if input.button == MouseButton::Right || input.button == MouseButton::Left {
                     match input.state {
                         ButtonState::Pressed => {
                             if insight.is_held == false
@@ -219,8 +243,12 @@ pub fn update_cursor(
                                 commands.spawn((
                                     SpriteBundle {
                                         texture: server.load(bar_path),
-                                        transform: Transform::from_xyz(-76., 20., 310.)
-                                            .with_scale(Vec3::splat(0.5)),
+                                        transform: Transform::from_xyz(
+                                            world_position.x / 8. - RES_WIDTH as f32 / 2.,
+                                            -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.,
+                                            310.,
+                                        )
+                                        .with_scale(Vec3::splat(0.5)),
                                         ..Default::default()
                                     },
                                     InsightBarBorder,
@@ -231,8 +259,12 @@ pub fn update_cursor(
                                 commands.spawn((
                                     SpriteBundle {
                                         texture: server.load(bar_path),
-                                        transform: Transform::from_xyz(-76., 20., 310.)
-                                            .with_scale(Vec3::new(0., 0.5, 0.5)),
+                                        transform: Transform::from_xyz(
+                                            world_position.x / 8. - RES_WIDTH as f32 / 2.,
+                                            -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.,
+                                            310.,
+                                        )
+                                        .with_scale(Vec3::new(0., 0.5, 0.5)),
                                         ..Default::default()
                                     },
                                     InsightBar(0.),
@@ -256,7 +288,7 @@ pub fn update_cursor(
                             if let Ok((entity, _, _)) = insight_bar.get_single() {
                                 commands.entity(entity).despawn();
                             }
-                            if let Ok(entity) = insight_bar_border.get_single() {
+                            if let Ok((entity, _)) = insight_bar_border.get_single() {
                                 commands.entity(entity).despawn();
                             }
                             insight.grace.reset();
@@ -267,9 +299,6 @@ pub fn update_cursor(
                     }
 
                     insight.grace.reset();
-                    for sfx in insight_sfx.iter() {
-                        commands.entity(sfx).despawn();
-                    }
                 }
             }
 
@@ -279,7 +308,7 @@ pub fn update_cursor(
                 if let Ok((entity, _, _)) = insight_bar.get_single() {
                     commands.entity(entity).despawn();
                 }
-                if let Ok(entity) = insight_bar_border.get_single() {
+                if let Ok((entity, _)) = insight_bar_border.get_single() {
                     commands.entity(entity).despawn();
                 }
                 insight.grace.reset();
@@ -300,7 +329,7 @@ pub fn update_cursor(
             if let Ok((entity, _, _)) = insight_bar.get_single() {
                 commands.entity(entity).despawn();
             }
-            if let Ok(entity) = insight_bar_border.get_single() {
+            if let Ok((entity, _)) = insight_bar_border.get_single() {
                 commands.entity(entity).despawn();
             }
             insight.is_held = false;
@@ -325,6 +354,8 @@ pub enum StatBar {
 struct Filler;
 
 fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
+    const BAR_X: f32 = -76. - 74. / 2.;
+
     let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
     commands.spawn((
         StatBar::Heart,
@@ -352,7 +383,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         Filler,
         SpriteBundle {
             texture: server.load(bar_path),
-            transform: Transform::from_xyz(-76., -10., 310.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            transform: Transform::from_xyz(BAR_X, -10., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
             ..Default::default()
         },
         Name::new("Stat filler"),
@@ -384,7 +415,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         Filler,
         SpriteBundle {
             texture: server.load(bar_path),
-            transform: Transform::from_xyz(-76., 0., 310.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            transform: Transform::from_xyz(BAR_X, 0., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
             ..Default::default()
         },
         Name::new("Stat filler"),
@@ -416,7 +447,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         Filler,
         SpriteBundle {
             texture: server.load(bar_path),
-            transform: Transform::from_xyz(-76., 10., 310.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            transform: Transform::from_xyz(BAR_X, 10., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
             ..Default::default()
         },
         Name::new("Stat filler"),
@@ -427,7 +458,6 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
 fn display_state_bars(
     mut bars: Query<(&mut Transform, &StatBar, &mut Visibility, Has<Filler>)>,
     state: Res<KingdomState>,
-    selected_player: Query<Entity, With<ShowSelectionUi>>,
     time_state: Res<State<TimeState>>,
 ) {
     if *time_state.get() != TimeState::Day && *time_state.get() != TimeState::Night {
@@ -439,27 +469,27 @@ fn display_state_bars(
             *vis = Visibility::Visible;
 
             if filler {
-                match bar {
-                    StatBar::Wealth => {
-                        sprite_transform.scale.x = (state.wealth / 500.0 * 0.5).clamp(0., 0.5);
-                    }
-                    StatBar::Heart => {
-                        sprite_transform.scale.x = (state.heart_size / 6.0 * 0.5).clamp(0., 0.5);
-                    }
-                    StatBar::Happiness => {
-                        sprite_transform.scale.x = (state.wealth / 500.0 * 0.5).clamp(0., 0.5);
-                    }
-                }
+                let new_scale = match bar {
+                    StatBar::Wealth => (state.wealth / MAX_WEALTH * 0.5).clamp(0., 0.5),
+                    StatBar::Heart => (state.heart_size / MAX_HEART_SIZE * 0.5).clamp(0., 0.5),
+                    StatBar::Happiness => (state.happiness / MAX_HAPPINESS * 0.5).clamp(0., 0.5),
+                };
+
+                let diff = sprite_transform.scale.x - new_scale;
+                sprite_transform.scale.x = new_scale;
+                sprite_transform.translation.x -= diff * 74.;
             }
         }
     }
 }
 
-#[derive(Component, PartialEq, Eq)]
+#[derive(Debug, Default, Deserialize, Asset, Component, Reflect, Clone, PartialEq, Eq, Copy)]
 pub enum Mask {
     Happy,
     Neutral,
     Sad,
+    #[default]
+    None,
 }
 
 #[derive(Resource)]
@@ -484,16 +514,19 @@ fn mask_ui(
     }
 }
 
+#[derive(Component)]
+struct HeartFlash;
+
 fn setup_heart_ui(
     mut commands: Commands,
     server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
     let texture = server.load("ui/heart_sprite_sheet.png");
-    let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 6, 1, None, None);
+    let layout = TextureAtlasLayout::from_grid(UVec2::splat(100), 8, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
-    let animation_indices = AnimationIndices { first: 0, last: 5 };
-    let transform = Transform::from_xyz(-90., -45., 100.);
+    let animation_indices = AnimationIndices { first: 0, last: 7 };
+    let transform = Transform::from_xyz(-90., -45., 100.).with_scale(Vec3::splat(HEART_SCALE / 2.));
 
     let pulse = Tween::new(
         // Use a quadratic easing on both endpoints.
@@ -516,7 +549,6 @@ fn setup_heart_ui(
         SpriteBundle {
             texture,
             transform,
-            // .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
             ..Default::default()
         },
         TextureAtlas {
@@ -524,8 +556,41 @@ fn setup_heart_ui(
             index: animation_indices.first,
         },
         animation_indices,
-        AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
+        AnimationTimer(Timer::from_seconds(0.15, TimerMode::Repeating)),
         HeartUi,
+        UiNode,
+        // Animator::new(pulse),
+        PIXEL_PERFECT_LAYER,
+    ));
+
+    let pulse = Tween::new(
+        // Use a quadratic easing on both endpoints.
+        EaseFunction::QuadraticInOut,
+        // Animation time (one way only; for ping-pong it takes 2 seconds
+        // to come back to start).
+        Duration::from_secs_f32(0.5),
+        // The lens gives the Animator access to the Transform component,
+        // to animate it. It also contains the start and end values associated
+        // with the animation ratios 0. and 1.
+        SpriteColorLens {
+            start: LinearRgba::new(165. / 255., 48. / 255., 48. / 255., 1.).into(),
+            end: LinearRgba::new(165. / 255., 48. / 255., 48. / 255., 0.).into(),
+        },
+    )
+    .with_repeat_count(RepeatCount::Infinite)
+    .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
+
+    commands.spawn((
+        HeartFlash,
+        SpriteBundle {
+            texture: server.load("ui/heart_flash.png"),
+            transform: Transform::from_scale(Vec3::splat(1.))
+                .with_translation(Vec3::default().with_z(100.)),
+            visibility: Visibility::Hidden,
+            // transform,
+            // .with_scale(Vec3::splat(HEART_SCALE * (50. / 130.))),
+            ..Default::default()
+        },
         UiNode,
         Animator::new(pulse),
         PIXEL_PERFECT_LAYER,
@@ -538,60 +603,62 @@ fn heart_ui(
     state: Res<KingdomState>,
     mut reader: EventReader<NewHeartSize>,
     mut heart: Query<(Entity, &mut Transform), (With<Sprite>, With<HeartUi>)>,
-    mut heart_ui: Query<&mut Text, With<HeartUi>>,
+    mut heart_flash: Query<&mut Visibility, With<HeartFlash>>,
 ) {
-    if let Ok(mut text) = heart_ui.get_single_mut() {
-        text.sections[0].value = format!("Heart size: {:?}", state.heart_size);
+    if let Ok(mut vis) = heart_flash.get_single_mut() {
+        if state.heart_size == 5. || state.heart_size == 1. {
+            *vis = Visibility::Visible;
+        } else {
+            *vis = Visibility::Hidden;
+        }
     }
 
     if let Ok((entity, mut transform)) = heart.get_single_mut() {
-        let Some(new_size) = reader.read().next() else {
-            return;
-        };
+        for new_size in reader.read() {
+            transform.scale = Vec3::splat(HEART_SCALE * (new_size.0 / MAX_HEART_SIZE));
 
-        // transform.scale = Vec3::splat(HEART_SCALE * (new_size.0 / 130.));
+            commands.spawn(AudioBundle {
+                source: server.load("audio/heartbeat.wav"),
+                settings: PlaybackSettings::DESPAWN,
+            });
 
-        commands.spawn(AudioBundle {
-            source: server.load("audio/heartbeat.wav"),
-            settings: PlaybackSettings::DESPAWN,
-        });
+            let pulse = Tween::new(
+                // Use a quadratic easing on both endpoints.
+                EaseFunction::QuadraticInOut,
+                // Animation time (one way only; for ping-pong it takes 2 seconds
+                // to come back to start).
+                Duration::from_secs_f32(1.0),
+                // The lens gives the Animator access to the Transform component,
+                // to animate it. It also contains the start and end values associated
+                // with the animation ratios 0. and 1.
+                TransformScaleLens {
+                    start: transform.scale,
+                    end: transform.scale * Vec3::new(1.1, 1.05, 1.),
+                },
+            )
+            .with_repeat_count(RepeatCount::Infinite)
+            .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
 
-        let pulse = Tween::new(
-            // Use a quadratic easing on both endpoints.
-            EaseFunction::QuadraticInOut,
-            // Animation time (one way only; for ping-pong it takes 2 seconds
-            // to come back to start).
-            Duration::from_secs_f32(1.0),
-            // The lens gives the Animator access to the Transform component,
-            // to animate it. It also contains the start and end values associated
-            // with the animation ratios 0. and 1.
-            TransformScaleLens {
-                start: transform.scale,
-                end: transform.scale * Vec3::new(1.1, 1.05, 1.),
-            },
-        )
-        .with_repeat_count(RepeatCount::Infinite)
-        .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
+            let rotate = Tween::new(
+                // Use a quadratic easing on both endpoints.
+                EaseFunction::QuadraticInOut,
+                // Animation time (one way only; for ping-pong it takes 2 seconds
+                // to come back to start).
+                Duration::from_secs_f32(0.1),
+                // The lens gives the Animator access to the Transform component,
+                // to animate it. It also contains the start and end values associated
+                // with the animation ratios 0. and 1.
+                TransformRotateZLens {
+                    start: 0.,
+                    end: 0.05,
+                },
+            )
+            .with_repeat_count(RepeatCount::Finite(4))
+            .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
 
-        let rotate = Tween::new(
-            // Use a quadratic easing on both endpoints.
-            EaseFunction::QuadraticInOut,
-            // Animation time (one way only; for ping-pong it takes 2 seconds
-            // to come back to start).
-            Duration::from_secs_f32(0.1),
-            // The lens gives the Animator access to the Transform component,
-            // to animate it. It also contains the start and end values associated
-            // with the animation ratios 0. and 1.
-            TransformRotateZLens {
-                start: 0.,
-                end: 0.05,
-            },
-        )
-        .with_repeat_count(RepeatCount::Finite(4))
-        .with_repeat_strategy(RepeatStrategy::MirroredRepeat);
-
-        commands
-            .entity(entity)
-            .insert(Animator::new(Tracks::new([pulse, rotate])));
+            commands
+                .entity(entity)
+                .insert(Animator::new(Tracks::new([rotate])));
+        }
     }
 }

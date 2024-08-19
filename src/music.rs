@@ -11,8 +11,7 @@ impl Plugin for MusicPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Music::default())
             .add_event::<MusicEvent>()
-            .add_systems(Update, (handle_music_playback, test_music))
-            .add_systems(OnEnter(GameState::Main), start_music);
+            .add_systems(Update, (handle_music_playback, test_music));
     }
 }
 
@@ -49,10 +48,6 @@ pub enum MusicEvent {
     Pause,
     FadeOutSecs(f32),
     FadeInSecs(MusicKind, f32),
-}
-
-fn start_music(mut event_writer: EventWriter<MusicEvent>) {
-    event_writer.send(MusicEvent::Play(MusicKind::Day));
 }
 
 fn test_music(

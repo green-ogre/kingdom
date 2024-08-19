@@ -57,7 +57,7 @@ fn main() {
         .init_state::<GameState>()
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
-                .continue_to_state(GameState::Main)
+                .continue_to_state(GameState::MainMenu)
                 .load_collection::<CharacterAssets>(),
         )
         .add_systems(Startup, menu::setup_cursor)

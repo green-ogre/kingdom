@@ -1,6 +1,6 @@
 use crate::animation::{set_world_to_black, DelayedSpawn};
 use crate::music::MusicEvent;
-use crate::state::KingdomState;
+use crate::state::{KingdomState, MAX_HEART_SIZE, MIN_PROSPERITY};
 use crate::ui::{HeartUi, StatBar, UiNode};
 use crate::GameState;
 use bevy::audio::PlaybackMode;
@@ -15,12 +15,43 @@ pub struct EndPlugin;
 
 impl Plugin for EndPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Win), (set_world_to_black, enter_death))
+        app.add_systems(OnEnter(GameState::Win), (set_world_to_black, enter_win))
             .add_systems(
                 OnEnter(GameState::Loose),
-                (set_world_to_black, enter_death).chain(),
+                (
+                    set_world_to_black,
+                    enter_death.run_if(should_die),
+                    enter_not_enough_prosperity.run_if(should_not_die),
+                )
+                    .chain(),
             );
     }
+}
+
+fn should_not_die(state: Res<KingdomState>) -> bool {
+    !should_die(state)
+}
+
+fn should_die(state: Res<KingdomState>) -> bool {
+    if state.heart_size <= 0. || state.heart_size >= MAX_HEART_SIZE {
+        true
+    } else if state.day == 3 {
+        if state.prosperity() >= MIN_PROSPERITY {
+            false
+        } else {
+            false
+        }
+    } else {
+        unreachable!()
+    }
+}
+
+fn enter_win() {
+    info!("you win");
+}
+
+fn enter_not_enough_prosperity() {
+    info!("you did not have enough prosperity");
 }
 
 #[derive(Component)]
@@ -44,6 +75,14 @@ pub fn enter_death(
     for entity in ui.iter() {
         commands.entity(entity).despawn();
     }
+
+    // commands.spawn((
+    //     AudioBundle {
+    //         source: server.load("audio/interface/Wav/Error_tones/style1/error_style_1_003.wav"),
+    //         settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+    //     },
+    //     BreathingSfx,
+    // ));
 
     commands.spawn((
         AudioBundle {

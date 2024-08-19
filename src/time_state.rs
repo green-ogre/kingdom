@@ -3,7 +3,8 @@ use crate::menu::FONT_PATH;
 use crate::music::{MusicEvent, MusicKind};
 use crate::state::KingdomState;
 use crate::ui::background::{
-    BackgroundTownNight, CricketAudio, Crowd, CrowdAudio, CRICKET_VOLUME, CROWD_VOLUME,
+    setup_background_particles, setup_background_particles_for_dream, BackgroundTownNight,
+    CricketAudio, Crowd, CrowdAudio, CRICKET_VOLUME, CROWD_VOLUME,
 };
 use bevy::audio::Volume;
 use bevy::prelude::*;
@@ -17,7 +18,10 @@ impl Plugin for TimeStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<TimeState>()
             .add_systems(Startup, startup)
-            .add_systems(OnEnter(TimeState::Evening), enter_night)
+            .add_systems(
+                OnEnter(TimeState::Evening),
+                (increment_day, enter_night).chain(),
+            )
             .add_systems(OnEnter(TimeState::Morning), enter_morning)
             .insert_resource(DayNumberUi::default());
     }
@@ -44,6 +48,10 @@ fn startup(mut commands: Commands, server: Res<AssetServer>) {
             NextDayUi,
         ))
         .insert(Visibility::Hidden);
+}
+
+fn increment_day(mut state: ResMut<KingdomState>) {
+    state.day += 1;
 }
 
 #[derive(Component)]
@@ -93,6 +101,24 @@ fn enter_night(
     info!("entering night");
 }
 
+pub fn start_in_night(
+    mut commands: Commands,
+    mut nigth_village_sprite: Query<&mut Visibility, With<BackgroundTownNight>>,
+    mut crowds: Query<&mut Visibility, (With<Crowd>, Without<BackgroundTownNight>)>,
+    mut crowd_audio: Query<&mut PlaybackSettings, With<CrowdAudio>>,
+    mut cricket_audio: Query<&mut PlaybackSettings, (With<CricketAudio>, Without<CrowdAudio>)>,
+) {
+    cricket_audio.single_mut().volume = Volume::new(CRICKET_VOLUME);
+    crowd_audio.single_mut().volume = Volume::new(0.);
+    let id = commands.register_one_shot_system(setup_background_particles_for_dream);
+    commands.run_system(id);
+    *nigth_village_sprite.single_mut() = Visibility::Visible;
+    for mut vis in crowds.iter_mut() {
+        *vis = Visibility::Hidden;
+    }
+    commands.next_state(TimeState::Night);
+}
+
 fn show_night(
     mut commands: Commands,
     mut nigth_village_sprite: Query<&mut Visibility, With<BackgroundTownNight>>,
@@ -103,6 +129,8 @@ fn show_night(
     for mut vis in crowds.iter_mut() {
         *vis = Visibility::Hidden;
     }
+    let id = commands.register_one_shot_system(setup_background_particles_for_dream);
+    commands.run_system(id);
     music.send(MusicEvent::FadeInSecs(crate::music::MusicKind::Dream, 3.));
     let system = commands.register_one_shot_system(handle_night);
     commands.insert_resource(FadeFromBlack::new(0.5, 10, 3., system));
@@ -186,6 +214,9 @@ pub fn handle_morning(
     let (mut vis, mut text) = next_day_ui.single_mut();
     *vis = Visibility::Visible;
     text.sections[0].value = state.day_name().to_string();
+
+    let id = commands.register_one_shot_system(setup_background_particles);
+    commands.run_system(id);
 
     music.send(MusicEvent::FadeInSecs(MusicKind::Day, 5.));
     let system = commands.register_one_shot_system(enter_day);
