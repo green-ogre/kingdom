@@ -22,7 +22,7 @@ requests:
       no:
       response_handlers: [set_cardiac_dream]
     - text: |
-        Your Majesty's cardiac affliction is rather crude work. How many men have been thus burdened, I wonder. No matter, we will use it to our advantage. Please, present You Grace's hand.
+        Your Majesty's cardiac affliction is rather crude work. How many have carried such a burden, I wonder. No matter, we will use it to our advantage. Please, present Your Grace's hand.
       yes:
       no:
       filter: cardiac_dream
@@ -34,7 +34,7 @@ requests:
       filter: no_choice
       response_handlers: [succ]
     - text: |
-        Use this gift with great care.
+        I have bestowed upon Your Grace a gift of great insight. Its power is vast in the hands of a King, but it will exact a heavy price.
       yes:
       no:
       filter: this_gift

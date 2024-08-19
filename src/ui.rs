@@ -1132,7 +1132,7 @@ fn aquire_insight(
         commands.run_system(spawn_insight.0);
 
         info!("aquiring insight");
-        state.heart_size -= 10.;
+        state.heart_size -= 1.;
     }
 }
 
@@ -1880,7 +1880,7 @@ fn end_animation(
     heart.translation = Vec3::new(0., 0., 999.);
     *visibility = Visibility::Hidden;
 
-    if state.heart_size > 90. {
+    if state.heart_size > 4. {
         let grow = Tween::new(
             EaseMethod::Linear,
             Duration::from_secs_f32(2.),
@@ -1897,7 +1897,7 @@ fn end_animation(
                 .with_completed_system(show_heart_with_rapid_beating)
                 .then(grow.with_completed_system(loose_ui)),
         ));
-    } else if state.heart_size < 10. {
+    } else if state.heart_size < 1. {
         let shrink = Tween::new(
             EaseMethod::Linear,
             Duration::from_secs_f32(4.),

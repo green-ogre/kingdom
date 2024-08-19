@@ -19,7 +19,7 @@ use bevy::{
 use bevy_hanabi::prelude::*;
 use sickle_ui::{prelude::*, ui_commands::UpdateStatesExt};
 
-pub const FONT_PATH: &'static str = "ui/alagard.ttf";
+pub const FONT_PATH: &str = "ui/alagard.ttf";
 
 pub struct MainMenuPlugin;
 

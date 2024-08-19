@@ -5,8 +5,8 @@ requests:
   - - text: |
         My Lord King, Your humble servant requests but a single horse. Our village suffered gravely this winter. We lost all our field animals.
       yes:
-        heart_size: 10
+        heart_size: 1
         happiness: 5
         wealth: 0
       no:
-        heart_size: -10
+        heart_size: -1
