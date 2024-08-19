@@ -414,7 +414,8 @@ pub struct FadeToBlackSprite;
 struct NextDayUi;
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {
-    commands.next_state(GameState::Night);
+    // commands.next_state(GameState::Night);
+    commands.next_state(GameState::Day);
 
     let id = commands.register_one_shot_system(spawn_insight);
     commands.insert_resource(SpawnInsight(id));
@@ -953,7 +954,11 @@ pub fn update_cursor(
                 insight.grace.reset();
             }
 
-            *visibility = Visibility::Visible;
+            if insight.character.as_ref() != selected_character.iter().next().map(|s| &s.1 .0) {
+                *visibility = Visibility::Visible;
+            } else {
+                *visibility = Visibility::Hidden;
+            }
         } else {
             commands.entity(entity).remove::<CursorCanDecide>();
             if let Ok((entity, _, _)) = insight_bar.get_single() {

@@ -29,14 +29,10 @@ impl Plugin for CharacterPlugin {
             // .insert_resource(SelectedCharacter::default())
             .add_systems(
                 OnEnter(GameState::Main),
-                (
-                    load_characters,
-                    crate::state::initialize_filters,
-                    // choose_new_character,
-                )
-                    .chain(),
+                (load_characters, crate::state::initialize_filters).chain(),
             )
             .add_systems(PreUpdate, (load_character_sprite, hide_characters))
+            .add_systems(OnEnter(GameState::Day), choose_new_character)
             .add_systems(
                 Update,
                 (update_character_sprite, character_ui, handle_slide_intro)

@@ -29,7 +29,7 @@ impl Plugin for StatePlugin {
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
                 // this one so one-shot systems have a chance to actually be applied.
                 (state_ui, update_state, check_heart_end_conditions)
-                    .run_if(in_state(GameState::Main)),
+                    .run_if(in_state(GameState::Day)),
             );
     }
 }
