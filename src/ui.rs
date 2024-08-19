@@ -410,9 +410,8 @@ struct NextDayUi;
 
 fn startup_debug(mut commands: Commands, mut state: ResMut<KingdomState>) {
     // commands.next_state(TimeState::Evening);
-    commands.next_state(TimeState::Morning);
 
-    state.day = 1;
+    state.day = 0;
 }
 
 fn startup(mut commands: Commands, mut state: ResMut<KingdomState>) {

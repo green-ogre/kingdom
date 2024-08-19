@@ -36,7 +36,7 @@ impl Plugin for CharacterPlugin {
                     .chain(),
             )
             .add_systems(PreUpdate, load_character_sprite)
-            // .add_systems(OnEnter(TimeState::Day), choose_new_character)
+            .add_systems(OnEnter(TimeState::Day), choose_new_character)
             .add_systems(OnEnter(TimeState::Night), set_dream_character)
             // .add_systems(OnEnter(GameState::Main), choose_new_character)
             .add_systems(
@@ -88,11 +88,11 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
         // ("merideth", character_assets.merideth.clone()),
         ("prince", character_assets.prince.clone()),
         ("dream-man", character_assets.dream_man.clone()),
-        ("princess", character_assets.princess.clone()),
-        ("blacksmith", character_assets.blacksmith.clone()),
-        ("tax-man", character_assets.tax_man.clone()),
-        ("village-leader", character_assets.village_leader.clone()),
-        ("baker", character_assets.baker.clone()),
+        // ("princess", character_assets.princess.clone()),
+        // ("blacksmith", character_assets.blacksmith.clone()),
+        // ("tax-man", character_assets.tax_man.clone()),
+        // ("village-leader", character_assets.village_leader.clone()),
+        // ("baker", character_assets.baker.clone()),
         ("west-duchess", character_assets.west_duchess.clone()),
         ("nun", character_assets.nun.clone()),
     ]);
@@ -126,6 +126,25 @@ pub fn choose_new_character(
 
     let mut rng = thread_rng();
 
+    for (entity, transform) in prev_sel_sprite.iter() {
+        commands.entity(entity).remove::<SelectedCharacterSprite>();
+
+        let slide = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_secs_f32(1.5),
+            TransformPositionLens {
+                start: transform.translation,
+                end: Vec3::default()
+                    .with_x(-300.)
+                    .with_z(transform.translation.z),
+            },
+        );
+
+        commands.entity(entity).insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+        ));
+    }
+
     let (new_character, new_handle, (request_index, request)) =
         if *time_state.get() != TimeState::Night {
             match characters
@@ -148,6 +167,9 @@ pub fn choose_new_character(
                 None => {
                     // All dialogue exhausted, move to next state
                     next_time_state.set(TimeState::Evening);
+                    if let Ok((entity, _)) = selected_character.get_single() {
+                        commands.entity(entity).despawn()
+                    }
                     return;
                 }
             }
@@ -163,6 +185,9 @@ pub fn choose_new_character(
                 None => {
                     // All dialogue exhausted, move to next state
                     next_time_state.set(TimeState::Morning);
+                    if let Ok((entity, _)) = selected_character.get_single() {
+                        commands.entity(entity).despawn()
+                    }
                     return;
                 }
             }
@@ -170,25 +195,6 @@ pub fn choose_new_character(
 
     info!("selecting new character: {:?}", new_character);
     characters.current_key = new_character;
-
-    for (entity, transform) in prev_sel_sprite.iter() {
-        commands.entity(entity).remove::<SelectedCharacterSprite>();
-
-        let slide = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_secs_f32(1.5),
-            TransformPositionLens {
-                start: transform.translation,
-                end: Vec3::default()
-                    .with_x(-300.)
-                    .with_z(transform.translation.z),
-            },
-        );
-
-        commands.entity(entity).insert(Animator::new(
-            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
-        ));
-    }
 
     let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
     *type_writer = TypeWriter::new(request.text.clone(), 0.025, sfx);

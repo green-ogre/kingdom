@@ -66,8 +66,9 @@ enum TimeState {
     Night,
     Evening,
     Morning,
-    #[default]
     Day,
+    #[default]
+    None,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
