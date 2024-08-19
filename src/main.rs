@@ -7,6 +7,7 @@ use bevy_asset_loader::loading_state::{
     config::ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
 use bevy_inspector_egui::{quick::WorldInspectorPlugin, DefaultInspectorConfigPlugin};
+use bevy_kira_audio::prelude::*;
 use character::{CharacterAssets, CharacterPlugin};
 use menu::MainMenuPlugin;
 use pixel_perfect::PixelPerfectPlugin;
@@ -16,6 +17,7 @@ use ui::{set_world_to_black, UiPlugin};
 mod animated_sprites;
 mod character;
 mod menu;
+mod music;
 mod pixel_perfect;
 mod state;
 mod type_writer;
@@ -40,6 +42,8 @@ fn main() {
             PixelPerfectPlugin,
             // WorldInspectorPlugin::new(),
             MainMenuPlugin,
+            AudioPlugin,
+            music::MusicPlugin,
         ))
         .init_state::<GameState>()
         .add_loading_state(

@@ -1,5 +1,6 @@
 use crate::animated_sprites::{AnimationIndices, AnimationTimer};
 use crate::character::{self, Character, CharacterUi, Characters, SelectedCharacter};
+use crate::music::MusicEvent;
 use crate::pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER, RES_HEIGHT, RES_WIDTH};
 use crate::state::{EndDay, KingdomState, NewHeartSize};
 use crate::type_writer::TypeWriter;
@@ -11,7 +12,6 @@ use bevy::input::ButtonState;
 use bevy::ui::ContentSize;
 use bevy::window::PrimaryWindow;
 use bevy::{audio::Volume, prelude::*};
-use bevy_stat_bars::*;
 use bevy_tweening::*;
 use lens::{TransformRotateZLens, TransformScaleLens};
 use rand::Rng;
@@ -87,6 +87,7 @@ fn end_day_and_enter_next(
     state: Res<KingdomState>,
     time: Res<Time>,
     server: Res<AssetServer>,
+    mut music: EventWriter<MusicEvent>,
 ) {
     for _ in end_day.read() {
         commands.insert_resource(FadeToBlack::new(0.5, 4));
@@ -94,6 +95,7 @@ fn end_day_and_enter_next(
             source: server.load("audio/church_bells.wav"),
             settings: PlaybackSettings::default().with_volume(Volume::new(0.5)),
         });
+        music.send(MusicEvent::FadeOutSecs(5.));
     }
 
     for _ in finish_fade_to_black.read() {
@@ -116,6 +118,7 @@ fn end_day_and_enter_next(
 
     for _ in finish_fade_from_black.read() {
         commands.run_system(characters.choose_new_character);
+        music.send(MusicEvent::Play);
     }
 }
 
