@@ -37,4 +37,3 @@ requests:
       yes:
       no:
       filter: this_gift
-      response_handlers: [dream_transition_to_day]

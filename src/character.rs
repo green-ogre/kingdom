@@ -28,16 +28,11 @@ impl Plugin for CharacterPlugin {
             // .insert_resource(SelectedCharacter::default())
             .add_systems(
                 OnEnter(GameState::Main),
-                (
-                    load_characters,
-                    crate::state::initialize_filters,
-                    choose_new_character,
-                )
-                    .chain(),
+                (load_characters, crate::state::initialize_filters).chain(),
             )
             .add_systems(PreUpdate, load_character_sprite)
             .add_systems(OnEnter(TimeState::Day), choose_new_character)
-            .add_systems(OnEnter(TimeState::Night), set_dream_character)
+            .add_systems(OnEnter(TimeState::Night), choose_new_character)
             // .add_systems(OnEnter(GameState::Main), choose_new_character)
             .add_systems(
                 Update,
@@ -93,8 +88,8 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
         // ("tax-man", character_assets.tax_man.clone()),
         // ("village-leader", character_assets.village_leader.clone()),
         // ("baker", character_assets.baker.clone()),
-        ("west-duchess", character_assets.west_duchess.clone()),
-        ("nun", character_assets.nun.clone()),
+        // ("west-duchess", character_assets.west_duchess.clone()),
+        // ("nun", character_assets.nun.clone()),
     ]);
 
     let choose_new_character = commands.register_one_shot_system(choose_new_character);
@@ -123,26 +118,27 @@ pub fn choose_new_character(
     despawn_insight: Res<DespawnInsight>,
 ) {
     commands.run_system(despawn_insight.0);
-
     let mut rng = thread_rng();
 
-    for (entity, transform) in prev_sel_sprite.iter() {
-        commands.entity(entity).remove::<SelectedCharacterSprite>();
+    if *time_state.get() != TimeState::Night || selected_character.is_empty() {
+        for (entity, transform) in prev_sel_sprite.iter() {
+            commands.entity(entity).remove::<SelectedCharacterSprite>();
 
-        let slide = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_secs_f32(1.5),
-            TransformPositionLens {
-                start: transform.translation,
-                end: Vec3::default()
-                    .with_x(-300.)
-                    .with_z(transform.translation.z),
-            },
-        );
+            let slide = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs_f32(1.5),
+                TransformPositionLens {
+                    start: transform.translation,
+                    end: Vec3::default()
+                        .with_x(-300.)
+                        .with_z(transform.translation.z),
+                },
+            );
 
-        commands.entity(entity).insert(Animator::new(
-            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
-        ));
+            commands.entity(entity).insert(Animator::new(
+                Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+            ));
+        }
     }
 
     let (new_character, new_handle, (request_index, request)) =
@@ -168,6 +164,7 @@ pub fn choose_new_character(
                     // All dialogue exhausted, move to next state
                     next_time_state.set(TimeState::Evening);
                     if let Ok((entity, _)) = selected_character.get_single() {
+                        info!("transition to evening");
                         commands.entity(entity).despawn()
                     }
                     return;
@@ -186,6 +183,7 @@ pub fn choose_new_character(
                     // All dialogue exhausted, move to next state
                     next_time_state.set(TimeState::Morning);
                     if let Ok((entity, _)) = selected_character.get_single() {
+                        info!("transition to morning");
                         commands.entity(entity).despawn()
                     }
                     return;
@@ -202,125 +200,46 @@ pub fn choose_new_character(
     let character = character_assets.get_mut(&new_handle).unwrap();
     character.set_used(state.day, request_index);
 
-    if let Some(entities) = character.sprite {
-        for entity in entities.iter() {
-            if let Ok(sprite) = sprites.get(*entity) {
-                let slide = Tween::new(
-                    EaseFunction::QuadraticInOut,
-                    Duration::from_secs_f32(1.5),
-                    TransformPositionLens {
-                        start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
-                        end: Vec3::ZERO.with_z(sprite.translation.z),
-                    },
-                );
-
-                commands.entity(*entity).insert((
-                    SelectedCharacterSprite,
-                    Animator::new(
-                        slide.then(
-                            Delay::new(Duration::from_secs_f32(0.5))
-                                .with_completed_event(FINISHED_SLIDE),
-                        ),
-                    ),
-                ));
+    let sliding_intro =
+        if let Ok((entity, mut selected_character)) = selected_character.get_single_mut() {
+            if selected_character.0 != new_handle {
+                commands.entity(entity).insert(SlidingIntro);
+                selected_character.0 = new_handle;
+                true
+            } else {
+                // selected_character.0 = new_handle;
+                false
             }
-        }
-    }
-
-    if let Ok((entity, mut selected_character)) = selected_character.get_single_mut() {
-        selected_character.0 = new_handle;
-        commands.entity(entity).insert(SlidingIntro);
-    } else {
-        commands.spawn((SelectedCharacter(new_handle), SlidingIntro));
-    }
-}
-
-fn set_dream_character(
-    mut commands: Commands,
-    server: Res<AssetServer>,
-    mut characters: ResMut<Characters>,
-    mut character_assets: ResMut<Assets<Character>>,
-    mut type_writer: ResMut<TypeWriter>,
-    prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
-    state: Res<KingdomState>,
-    sprites: Query<&Transform, With<CharacterSprite>>,
-    mut selected_character: Query<(Entity, &mut SelectedCharacter)>,
-) {
-    let mut rng = thread_rng();
-    let (new_character, new_handle, (request_index, request)) = characters
-        .table
-        .iter()
-        .filter_map(|(key, handle)| {
-            if *key == characters.current_key {
-                return None;
-            }
-
-            let character = character_assets.get(handle).unwrap();
-            character
-                .sample_requests(state.day, &mut rng)
-                .map(|r| (*key, handle.clone(), r))
-        })
-        .find(|(new_character, _, (_, _))| *new_character == "dream-man")
-        .expect("could not set dream character");
-
-    info!("selecting dream character: {:?}", new_character);
-    characters.current_key = new_character;
-
-    for (entity, transform) in prev_sel_sprite.iter() {
-        commands.entity(entity).remove::<SelectedCharacterSprite>();
-
-        let slide = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_secs_f32(1.5),
-            TransformPositionLens {
-                start: transform.translation,
-                end: Vec3::default()
-                    .with_x(-300.)
-                    .with_z(transform.translation.z),
-            },
-        );
-
-        commands.entity(entity).insert(Animator::new(
-            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
-        ));
-    }
-
-    let sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
-    *type_writer = TypeWriter::new(request.text.clone(), 0.035, sfx);
-
-    let character = character_assets.get_mut(&new_handle).unwrap();
-    character.set_used(state.day, request_index);
+        } else {
+            commands.spawn((SelectedCharacter(new_handle), SlidingIntro));
+            true
+        };
 
     if let Some(entities) = character.sprite {
         for entity in entities.iter() {
-            if let Ok(sprite) = sprites.get(*entity) {
-                let slide = Tween::new(
-                    EaseFunction::QuadraticInOut,
-                    Duration::from_secs_f32(1.5),
-                    TransformPositionLens {
-                        start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
-                        end: Vec3::ZERO.with_z(sprite.translation.z),
-                    },
-                );
+            if sliding_intro {
+                if let Ok(sprite) = sprites.get(*entity) {
+                    let slide = Tween::new(
+                        EaseFunction::QuadraticInOut,
+                        Duration::from_secs_f32(1.5),
+                        TransformPositionLens {
+                            start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
+                            end: Vec3::ZERO.with_z(sprite.translation.z),
+                        },
+                    );
 
-                commands.entity(*entity).insert((
-                    SelectedCharacterSprite,
-                    Animator::new(
-                        slide.then(
-                            Delay::new(Duration::from_secs_f32(0.5))
-                                .with_completed_event(FINISHED_SLIDE),
+                    commands.entity(*entity).insert((
+                        SelectedCharacterSprite,
+                        Animator::new(
+                            slide.then(
+                                Delay::new(Duration::from_secs_f32(0.5))
+                                    .with_completed_event(FINISHED_SLIDE),
+                            ),
                         ),
-                    ),
-                ));
+                    ));
+                }
             }
         }
-    }
-
-    if let Ok((entity, mut selected_character)) = selected_character.get_single_mut() {
-        selected_character.0 = new_handle;
-        commands.entity(entity).insert(SlidingIntro);
-    } else {
-        commands.spawn((SelectedCharacter(new_handle), SlidingIntro));
     }
 }
 

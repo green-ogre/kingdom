@@ -62,7 +62,7 @@ handler_map! {
     nun_paganism,
     prince_festival_handler,
     prince_disabled_handler,
-    dream_transition_to_day,
+    // dream_transition_to_day,
     dream_summon,
     present_hand,
     conditional_succ,
@@ -130,33 +130,33 @@ fn prince_disabled_handler(state: Res<KingdomState>, mut prince: ResMut<PrinceSt
     }
 }
 
-fn dream_transition_to_day(
-    mut commands: Commands,
-    prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
-    selected_character: Query<Entity, With<SelectedCharacter>>,
-) {
-    commands.next_state(TimeState::Morning);
-    commands.entity(selected_character.single()).despawn();
-
-    for (entity, transform) in prev_sel_sprite.iter() {
-        commands.entity(entity).remove::<SelectedCharacterSprite>();
-
-        let slide = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_secs_f32(1.5),
-            TransformPositionLens {
-                start: transform.translation,
-                end: Vec3::default()
-                    .with_x(-300.)
-                    .with_z(transform.translation.z),
-            },
-        );
-
-        commands.entity(entity).insert(Animator::new(
-            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
-        ));
-    }
-}
+// fn dream_transition_to_day(
+//     mut commands: Commands,
+//     prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
+//     selected_character: Query<Entity, With<SelectedCharacter>>,
+// ) {
+//     commands.next_state(TimeState::Morning);
+//     commands.entity(selected_character.single()).despawn();
+//
+//     for (entity, transform) in prev_sel_sprite.iter() {
+//         commands.entity(entity).remove::<SelectedCharacterSprite>();
+//
+//         let slide = Tween::new(
+//             EaseFunction::QuadraticInOut,
+//             Duration::from_secs_f32(1.5),
+//             TransformPositionLens {
+//                 start: transform.translation,
+//                 end: Vec3::default()
+//                     .with_x(-300.)
+//                     .with_z(transform.translation.z),
+//             },
+//         );
+//
+//         commands.entity(entity).insert(Animator::new(
+//             Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+//         ));
+//     }
+// }
 
 /////////////////////////////
 // DREAM
