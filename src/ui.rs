@@ -1091,7 +1091,7 @@ fn display_state_bars(
                         sprite_transform.scale.x = (state.wealth / 500.0 * 0.5).clamp(0., 0.5);
                     }
                     StatBar::Heart => {
-                        sprite_transform.scale.x = (state.heart_size / 100.0 * 0.5).clamp(0., 0.5);
+                        sprite_transform.scale.x = (state.heart_size / 6.0 * 0.5).clamp(0., 0.5);
                     }
                     StatBar::Happiness => {
                         sprite_transform.scale.x = (state.wealth / 500.0 * 0.5).clamp(0., 0.5);
@@ -1866,8 +1866,15 @@ fn end_animation(
     >,
     state: Res<KingdomState>,
     audio: Query<Entity, With<Handle<AudioSource>>>,
-    server: Res<AssetServer>,
+    stat_ui: Query<Entity, With<StatBar>>,
+    mut music: EventWriter<MusicEvent>,
 ) {
+    music.send(MusicEvent::Pause);
+
+    for entity in stat_ui.iter() {
+        commands.entity(entity).despawn();
+    }
+
     let Ok((entity, mut heart, mut visibility)) = heart_sprite.get_single_mut() else {
         error!("could not retrieve heart sprite for loose animation");
         return;
@@ -1971,19 +1978,19 @@ fn spawn_loose_ui(
 ) {
     commands.entity(audio.single()).despawn();
     *heart_sprite.single_mut() = Visibility::Hidden;
-    commands
-        .ui_builder(UiRoot)
-        .column(|column| {
-            column.spawn((TextBundle::from_section(
-                "You loose",
-                TextStyle {
-                    font_size: 30.0,
-                    ..default()
-                },
-            ),));
-        })
-        .style()
-        .justify_content(JustifyContent::Start);
+    // commands
+    //     .ui_builder(UiRoot)
+    //     .column(|column| {
+    //         column.spawn((TextBundle::from_section(
+    //             "You loose",
+    //             TextStyle {
+    //                 font_size: 30.0,
+    //                 ..default()
+    //             },
+    //         ),));
+    //     })
+    //     .style()
+    //     .justify_content(JustifyContent::Start);
 }
 
 fn spawn_win_ui(
