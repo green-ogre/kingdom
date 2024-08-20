@@ -1,7 +1,7 @@
 use crate::{
     pixel_perfect::HIGH_RES_LAYER,
     type_writer::{self, TypeWriter},
-    ui::{Cursor, InsightToolTip, UiNode},
+    ui::{Cursor, InsightToolTip, UiNode, FONT_PATH},
     GameState,
 };
 use bevy::{
@@ -16,17 +16,13 @@ use bevy_hanabi::prelude::*;
 use sickle_ui::{prelude::*, ui_commands::UpdateStatesExt};
 use std::time::Duration;
 
-pub const FONT_PATH: &str = "ui/alagard.ttf";
-
 pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::MainMenu), (setup_effect, setup))
-            .add_systems(
-                Update,
-                (parallax_sprites, update_text).run_if(in_state(GameState::MainMenu)),
-            )
+            .add_systems(Update, parallax_sprites)
+            .add_systems(Update, (update_text,).run_if(in_state(GameState::MainMenu)))
             .add_systems(Update, crate::ui::update_cursor)
             .add_plugins(HanabiPlugin);
     }
@@ -159,7 +155,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
     *type_writer = TypeWriter::new(
         "Your heart, dear King, it weighs the will of one\nWho seeks of you a choice, a thing undone. "
             .into(),
-        0.035,
+        0.045,
         sfx,
     );
 
@@ -170,7 +166,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
                 .with_translation(Vec3::default().with_z(-22.)),
             ..Default::default()
         },
-        HIGH_RES_LAYER,
+        // HIGH_RES_LAYER,
         Intro,
     ));
     commands.spawn((
@@ -180,8 +176,8 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
                 .with_translation(Vec3::default().with_z(-21.)),
             ..Default::default()
         },
-        ParallaxSprite(0.005),
-        HIGH_RES_LAYER,
+        ParallaxSprite(0.001),
+        // HIGH_RES_LAYER,
         Intro,
     ));
     commands.spawn((
@@ -191,8 +187,8 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
                 .with_translation(Vec3::default().with_z(-20.)),
             ..Default::default()
         },
-        ParallaxSprite(0.001),
-        HIGH_RES_LAYER,
+        ParallaxSprite(0.005),
+        // HIGH_RES_LAYER,
         Intro,
     ));
 }
@@ -356,11 +352,11 @@ fn update_text(
     if timer.0.finished() {
         timer.1 += 1;
 
-        if timer.1 == 2 {
+        if timer.1 == 3 {
             let sfx = server.load("audio/cursor_style_2_rev.wav");
             let line = "Closely must You watch this beating sieve;\nToo much, too little, and Your heart will give.";
-            *type_writer = TypeWriter::new(line.into(), 0.035, sfx);
-            timer.0.set_duration(Duration::from_secs_f32(7.));
+            *type_writer = TypeWriter::new(line.into(), 0.045, sfx);
+            // timer.0.set_duration(Duration::from_secs_f32(2.));
         }
 
         if timer.1 == 3 {
