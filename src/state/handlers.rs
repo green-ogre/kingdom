@@ -181,15 +181,15 @@ fn succ(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
     warn!("Do succing");
 }
 
-fn set_cardiac_dream(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn set_cardiac_dream(mut dream: ResMut<DreamState>) {
     dream.cardiac_dream = true;
 }
 
-fn set_no_choice(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn set_no_choice(mut dream: ResMut<DreamState>) {
     dream.no_choice = true;
 }
 
-fn set_this_gift(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn set_this_gift(mut dream: ResMut<DreamState>) {
     dream.this_gift = true;
 }
 
