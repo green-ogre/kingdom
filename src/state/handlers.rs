@@ -1,6 +1,7 @@
 use crate::{
     character::{Character, Characters},
     ui::decision::DecisionType,
+    GameState,
 };
 use bevy::{ecs::system::SystemId, prelude::*};
 use foldhash::HashMap;
@@ -15,7 +16,10 @@ impl Plugin for HandlerPlugin {
             .insert_resource(NunState::default())
             .insert_resource(PrinceState::default())
             .insert_resource(DreamState::default())
-            .add_systems(Startup, (ResponseHandlers::insert, Filters::insert));
+            .add_systems(
+                OnEnter(GameState::Main),
+                (ResponseHandlers::insert, Filters::insert),
+            );
     }
 }
 

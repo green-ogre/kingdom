@@ -1,12 +1,12 @@
 use crate::animation::{AudioVolumeLens, FadeFromBlack, FadeToBlack};
-use crate::menu::FONT_PATH;
 use crate::music::{MusicEvent, MusicKind};
 use crate::state::KingdomState;
 use crate::ui::background::{
     setup_background_particles, setup_background_particles_for_dream, BackgroundTownNight,
     CricketAudio, Crowd, CrowdAudio, CRICKET_VOLUME, CROWD_VOLUME,
 };
-use crate::GameState;
+use crate::ui::FONT_PATH;
+use crate::{GameState, SkipRemove};
 use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy_tweening::*;
@@ -48,7 +48,7 @@ fn startup(mut commands: Commands, server: Res<AssetServer>) {
             }),
             NextDayUi,
         ))
-        .insert(Visibility::Hidden);
+        .insert((Visibility::Hidden, SkipRemove));
 }
 
 fn increment_day(mut state: ResMut<KingdomState>) {

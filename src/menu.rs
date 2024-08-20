@@ -2,7 +2,7 @@ use crate::{
     pixel_perfect::HIGH_RES_LAYER,
     type_writer::{self, TypeWriter},
     ui::{Cursor, InsightToolTip, UiNode, FONT_PATH},
-    GameState,
+    GameState, SkipRemove,
 };
 use bevy::{
     audio::{PlaybackMode, Volume},
@@ -61,11 +61,13 @@ pub fn setup_cursor(
                     },
                     Cursor,
                 ))
+                .insert(SkipRemove)
                 .style()
                 .width(Val::Percent(100.))
                 .height(Val::Percent(100.));
             });
         })
+        .insert(SkipRemove)
         .style()
         .width(Val::Percent(100.))
         .height(Val::Percent(100.))
@@ -92,13 +94,16 @@ pub fn setup_cursor(
                             // calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
                             ..Default::default()
                         },
-                    ));
+                    ))
+                    .insert(SkipRemove);
                 })
+                .insert(SkipRemove)
                 .insert(Visibility::Hidden)
                 .style()
                 .width(Val::Percent(100.))
                 .height(Val::Percent(100.));
         })
+        .insert(SkipRemove)
         .style()
         .width(Val::Percent(100.))
         .height(Val::Percent(100.))

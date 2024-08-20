@@ -80,6 +80,9 @@ enum GameState {
     Win,
 }
 
+#[derive(Component)]
+pub struct SkipRemove;
+
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct CharacterSet;
 

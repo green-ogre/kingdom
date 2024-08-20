@@ -37,6 +37,7 @@ pub const MAX_HEART_SIZE: f32 = 6.;
 pub const MAX_WEALTH: f32 = 100.;
 pub const MAX_HAPPINESS: f32 = 100.;
 pub const MIN_PROSPERITY: f32 = 150.;
+pub const MAX_PROSPERITY: f32 = 200.;
 
 #[derive(Debug, Default, Asset, Resource, Reflect, Clone)]
 pub struct KingdomState {

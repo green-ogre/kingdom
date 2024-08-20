@@ -23,6 +23,7 @@ fn startup(mut commands: Commands) {
             ..default()
         },
         FadeToBlackSprite,
+        SkipRemove,
     ));
 }
 
@@ -67,7 +68,7 @@ pub struct AudioVolumeLens {
 
 use bevy_tweening::{Lens, Targetable};
 
-use crate::ui::UiNode;
+use crate::{ui::UiNode, GameState, SkipRemove};
 
 impl Lens<AudioSink> for AudioVolumeLens {
     fn lerp(&mut self, target: &mut dyn Targetable<AudioSink>, ratio: f32) {

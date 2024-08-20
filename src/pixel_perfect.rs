@@ -7,8 +7,11 @@ use bevy::{
         },
         view::RenderLayers,
     },
-    window::WindowResized,
+    window::{PrimaryWindow, WindowResized},
 };
+use sickle_ui::ui_commands::UpdateStatesExt;
+
+use crate::{GameState, SkipRemove};
 
 /// In-game resolution width.
 pub const RES_WIDTH: u32 = 240;
@@ -90,6 +93,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             // },
             ..default()
         },
+        SkipRemove,
         InGameCamera,
         PIXEL_PERFECT_LAYER,
     ));
@@ -101,6 +105,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             transform: Transform::from_xyz(0., 0., -999.),
             ..default()
         },
+        SkipRemove,
         Canvas,
         HIGH_RES_LAYER,
     ));
@@ -115,6 +120,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             // },
             ..Default::default()
         },
+        SkipRemove,
         OuterCamera,
         HIGH_RES_LAYER,
     ));
@@ -128,7 +134,8 @@ fn fit_canvas(
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        let mut projection = projections.single_mut();
-        projection.scale = 1. / h_scale.min(v_scale);
+        if let Ok(mut projection) = projections.get_single_mut() {
+            projection.scale = 1. / h_scale.min(v_scale);
+        }
     }
 }

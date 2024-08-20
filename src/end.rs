@@ -2,16 +2,16 @@ use crate::animation::{
     set_world_to_black, AudioVolumeLens, DelayedSpawn, FadeFromBlack, FadeToBlack,
     FadeToBlackSprite,
 };
-use crate::menu::{ParallaxSprite, FONT_PATH};
+use crate::menu::ParallaxSprite;
 use crate::music::MusicEvent;
 use crate::pixel_perfect::HIGH_RES_LAYER;
-use crate::state::{KingdomState, MAX_HEART_SIZE, MIN_PROSPERITY};
+use crate::state::{KingdomState, MAX_HEART_SIZE, MAX_PROSPERITY, MIN_PROSPERITY};
 use crate::type_writer::TypeWriter;
 use crate::ui::background::{
     BackgroundParticles, BackgroundTownNight, Crowd, CrowdAudio, CROWD_VOLUME,
 };
-use crate::ui::{hex_to_vec4, HeartUi, StatBar, UiNode, HEART_SCALE};
-use crate::GameState;
+use crate::ui::{hex_to_vec4, HeartUi, StatBar, UiNode, FONT_PATH, HEART_SCALE};
+use crate::{GameState, SkipRemove};
 use bevy::audio::PlaybackMode;
 use bevy::audio::Volume;
 use bevy::input::keyboard::KeyboardInput;
@@ -22,7 +22,7 @@ use bevy::window::PrimaryWindow;
 use bevy_hanabi::prelude::*;
 use bevy_hanabi::EffectAsset;
 use bevy_tweening::*;
-use lens::TransformScaleLens;
+use lens::{TextColorLens, TransformPositionLens, TransformScaleLens};
 use sickle_ui::prelude::*;
 use sickle_ui::ui_commands::UpdateStatesExt;
 use std::time::Duration;
@@ -290,7 +290,7 @@ fn handle_revolution(
     mut reader: EventReader<KeyboardInput>,
     time: Res<Time>,
     mut timer: ResMut<EnterMainMenuTimer>,
-    enitites: Query<Entity>,
+    enitites: Query<Entity, (Without<PrimaryWindow>, Without<SkipRemove>)>,
     server: Res<AssetServer>,
 ) {
     let mut enter_next_state = || {
@@ -524,7 +524,25 @@ fn spawn_loose_ui(
             source,
             settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
         });
-    })
+    });
+
+    delay_spawn.spawn_after(5., move |commands| {
+        let id = commands.register_one_shot_system(reset_game);
+        commands.run_system(id);
+    });
+}
+
+fn reset_game(
+    mut commands: Commands,
+    entities: Query<Entity, (Without<PrimaryWindow>, Without<SkipRemove>)>,
+    mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
+) {
+    for entity in entities.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    sprite.single_mut().color.set_alpha(0.);
+    commands.next_state(GameState::MainMenu);
 }
 
 fn show_win(
@@ -536,6 +554,7 @@ fn show_win(
     crowd_audio: Query<Entity, With<CrowdAudio>>,
     ui: Query<Entity, With<UiNode>>,
     crowds: Query<Entity, With<Crowd>>,
+    server: Res<AssetServer>,
 ) {
     for entity in ui.iter() {
         commands.entity(entity).despawn();
@@ -618,15 +637,69 @@ fn setup_win(mut commands: Commands, server: Res<AssetServer>, mut spawner: ResM
             EaseMethod::Linear,
             Duration::from_secs_f32(5.),
             AudioVolumeLens {
-                start: 0.5,
-                end: 0.0,
+                start: 0.0,
+                end: 0.5,
             },
         )),
         Win,
     ));
 
     let source = server.load("audio/game-complete.wav");
+    let texture = server.load("ui/Popup Screen/Blurry_popup.png");
     spawner.spawn_after(5., move |commands| {
+        commands.spawn((
+            AudioBundle {
+                source,
+                settings: PlaybackSettings {
+                    mode: PlaybackMode::Despawn,
+                    volume: Volume::new(0.5),
+                    ..Default::default()
+                },
+            },
+            Win,
+        ));
+        commands.spawn((
+            SpriteBundle {
+                texture,
+                transform: Transform::from_xyz(0., 0., 300.),
+                ..Default::default()
+            },
+            Animator::new(Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs_f32(1.5),
+                TransformPositionLens {
+                    start: Vec3::default().with_x(300.),
+                    end: Vec3::default(),
+                },
+            )),
+        ));
+    });
+
+    let texture = server.load("ui/Skill Tree/Icons/Unlocked/x1/Unlocked2.png");
+    spawner.spawn_after(6.5, move |commands| {
+        commands.spawn((
+            SpriteBundle {
+                texture,
+                transform: Transform::from_xyz(300., 0., 0.),
+                ..Default::default()
+            },
+            ProsperityIcon,
+            Animator::new(Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs_f32(1.5),
+                TransformPositionLens {
+                    start: Vec3::default().with_x(300.),
+                    end: Vec3::default(),
+                },
+            )),
+        ));
+    });
+
+    let source =
+        server.load("audio/interface/Wav/Confirm_tones/style5/confirm_style_5_echo_003.wav");
+    let id = commands.register_one_shot_system(animate_prosperity_display);
+    spawner.spawn_after(8., move |commands| {
+        commands.run_system(id);
         commands.spawn((
             AudioBundle {
                 source,
@@ -678,7 +751,7 @@ fn setup_win(mut commands: Commands, server: Res<AssetServer>, mut spawner: ResM
                 .with_translation(Vec3::default().with_z(-21.)),
             ..Default::default()
         },
-        ParallaxSprite(0.005),
+        ParallaxSprite(0.001),
         // HIGH_RES_LAYER,
         Win,
     ));
@@ -689,10 +762,57 @@ fn setup_win(mut commands: Commands, server: Res<AssetServer>, mut spawner: ResM
                 .with_translation(Vec3::default().with_z(-20.)),
             ..Default::default()
         },
-        ParallaxSprite(0.001),
+        ParallaxSprite(0.005),
         // HIGH_RES_LAYER,
         Win,
     ));
+}
+
+#[derive(Component)]
+struct ProsperityIcon;
+
+fn animate_prosperity_display(
+    mut commands: Commands,
+    icon: Query<Entity, With<ProsperityIcon>>,
+    state: Res<KingdomState>,
+    server: Res<AssetServer>,
+) {
+    commands
+        .entity(icon.single())
+        .insert(Animator::new(Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_secs_f32(1.5),
+            TransformPositionLens {
+                start: Vec3::default(),
+                end: Vec3::default().with_x(-20.),
+            },
+        )));
+
+    commands
+        .spawn(TextBundle::from_section(
+            &format!("{}/{}", state.prosperity(), MAX_PROSPERITY),
+            TextStyle {
+                font: server.load(FONT_PATH),
+                font_size: 80.,
+                color: Srgba::new(1., 1., 1., 0.).into(),
+            },
+        ))
+        .insert(Animator::new(
+            Delay::new(Duration::from_secs_f32(1.5)).then(Tween::new(
+                EaseMethod::Linear,
+                Duration::from_secs_f32(1.5),
+                TextColorLens {
+                    start: Srgba::new(1., 1., 1., 0.).into(),
+                    end: Srgba::new(1., 1., 1., 1.).into(),
+                    section: 0,
+                },
+            )),
+        ))
+        .insert(Style {
+            left: Val::Percent(46.),
+            top: Val::Percent(45.5),
+            ..Default::default()
+        });
 }
 
 fn setup_win_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
@@ -767,15 +887,19 @@ fn setup_win_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAss
     ));
 }
 
+#[derive(Resource)]
+struct HaveClearedInput;
+
 fn handle_win(
     mut commands: Commands,
-    mut type_writer: ResMut<TypeWriter>,
     mut reader: EventReader<KeyboardInput>,
-    time: Res<Time>,
-    enitites: Query<Entity, With<Win>>,
-    server: Res<AssetServer>,
+    enitites: Query<Entity, (Without<PrimaryWindow>, Without<SkipRemove>)>,
+    have_cleared_input: Option<Res<HaveClearedInput>>,
 ) {
-    reader.clear();
+    if have_cleared_input.is_none() {
+        reader.clear();
+        commands.insert_resource(HaveClearedInput);
+    }
 
     for input in reader.read() {
         if matches!(
@@ -786,16 +910,10 @@ fn handle_win(
             } if *state
                 == ButtonState::Pressed
         ) {
-            if !type_writer.is_finished {
-                type_writer.finish();
-                continue;
-            }
-
             commands.next_state(GameState::Main);
             for entity in enitites.iter() {
                 commands.entity(entity).despawn();
             }
-
             return;
         }
     }
