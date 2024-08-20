@@ -1,16 +1,12 @@
-use std::time::Duration;
-
 use crate::{
-    pixel_perfect::{OuterCamera, HIGH_RES_LAYER, PIXEL_PERFECT_LAYER},
-    type_writer::{self, TypeWriter},
-    ui::{handle_morning, set_world_to_black, Cursor, Insight, InsightToolTip, UiNode},
-    GameState, TimeState,
+    pixel_perfect::HIGH_RES_LAYER,
+    type_writer::TypeWriter,
+    ui::{Cursor, InsightToolTip, UiNode},
+    GameState,
 };
 use bevy::{
     audio::{PlaybackMode, Volume},
-    ecs::world,
     input::{keyboard::KeyboardInput, ButtonState},
-    math::VectorSpace,
     prelude::*,
     render::view::RenderLayers,
     ui::ContentSize,
@@ -18,6 +14,7 @@ use bevy::{
 };
 use bevy_hanabi::prelude::*;
 use sickle_ui::{prelude::*, ui_commands::UpdateStatesExt};
+use std::time::Duration;
 
 pub const FONT_PATH: &str = "ui/alagard.ttf";
 
@@ -67,7 +64,6 @@ pub fn setup_cursor(
                     },
                     Cursor,
                 ));
-
                 row.row(|row| {
                     row.insert(InsightToolTip);
                     row.spawn((
@@ -86,29 +82,48 @@ pub fn setup_cursor(
                             ..Default::default()
                         },
                     ));
-                    row.spawn((
-                        UiNode,
-                        TextBundle::from_section(
-                            "Aquire Insight",
-                            TextStyle {
-                                font_size: 30.0,
-                                font: server.load(FONT_PATH),
-                                ..Default::default()
-                            },
-                        ),
-                    ));
+                    // row.spawn((ImageBundle {
+                    //     image: UiImage::new(
+                    //         server.load("ui/Skill Tree/Icons/Unlocked/x2/Unlocked11.png"),
+                    //     ),
+                    //     z_index: ZIndex::Global(100),
+                    //     style: Style { ..default() },
+                    //     ..Default::default()
+                    // },))
+                    //     .style()
+                    //     .justify_content(JustifyContent::Start);
+                    // row.spawn((TextBundle::from_section(
+                    //     " -1",
+                    //     TextStyle {
+                    //         font_size: 25.0,
+                    //         font: server.load(FONT_PATH),
+                    //         ..Default::default()
+                    //     },
+                    // ),));
+                    //
+                    // row.spawn((
+                    //     UiNode,
+                    //     TextBundle::from_section(
+                    //         "Aquire Insight",
+                    //         TextStyle {
+                    //             font_size: 30.0,
+                    //             font: server.load(FONT_PATH),
+                    //             ..Default::default()
+                    //         },
+                    //     ),
+                    // ));
                 })
                 .insert(Visibility::Hidden)
                 .style()
-                .column_gap(Val::Percent(20.))
+                // .column_gap(Val::Percent(15.))
                 // .row_gap(Val::Percent(20.))
-                // .position_type(PositionType::Absolute)
+                .position_type(PositionType::Absolute)
                 .justify_items(JustifyItems::Start);
             });
         })
         .style()
-        .column_gap(Val::Px(200.))
-        .row_gap(Val::Px(200.))
+        // .column_gap(Val::Px(200.))
+        // .row_gap(Val::Px(200.))
         .justify_content(JustifyContent::End);
 }
 
@@ -315,6 +330,27 @@ fn update_text(
     enitites: Query<Entity, With<Intro>>,
     server: Res<AssetServer>,
 ) {
+    let mut enter_next_state = || {
+        commands.next_state(GameState::Main);
+        for entity in enitites.iter() {
+            commands.entity(entity).despawn();
+        }
+    };
+
+    for input in reader.read() {
+        if matches!(
+            input,
+            KeyboardInput {
+                state,
+                ..
+            } if *state
+                == ButtonState::Pressed
+        ) {
+            enter_next_state();
+            return;
+        }
+    }
+
     timer.0.tick(time.delta());
 
     if timer.0.finished() {
@@ -328,11 +364,7 @@ fn update_text(
         }
 
         if timer.1 == 3 {
-            commands.next_state(GameState::Main);
-            for entity in enitites.iter() {
-                commands.entity(entity).despawn();
-            }
-
+            enter_next_state();
             return;
         }
     }
@@ -340,13 +372,6 @@ fn update_text(
     if timer.1 > 0 {
         type_writer.increment(&time);
         type_writer.try_play_sound(&mut commands);
-
-        for input in reader.read() {
-            if matches!(input, KeyboardInput { key_code,  state, .. } if *key_code == KeyCode::Space && *state == ButtonState::Pressed)
-            {
-                type_writer.finish();
-            }
-        }
 
         let mut text = intro_text.single_mut();
         text.sections[0].value = type_writer.slice_with_line_wrap().into();

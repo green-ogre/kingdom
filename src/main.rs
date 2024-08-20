@@ -6,20 +6,23 @@ use bevy::{
 use bevy_asset_loader::loading_state::{
     config::ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
-use bevy_inspector_egui::{quick::WorldInspectorPlugin, DefaultInspectorConfigPlugin};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_kira_audio::prelude::*;
 use character::{CharacterAssets, CharacterPlugin};
 use menu::MainMenuPlugin;
 use pixel_perfect::PixelPerfectPlugin;
-use state::{KingdomState, StatePlugin, StateUpdate};
-use ui::{set_world_to_black, UiPlugin};
+use state::{StatePlugin, StateUpdate};
+use ui::UiPlugin;
 
 mod animated_sprites;
+mod animation;
 mod character;
+mod end;
 mod menu;
 mod music;
 mod pixel_perfect;
 mod state;
+mod time_state;
 mod type_writer;
 mod ui;
 
@@ -40,16 +43,18 @@ fn main() {
             StatePlugin,
             UiPlugin,
             PixelPerfectPlugin,
-            WorldInspectorPlugin::new(),
+            // WorldInspectorPlugin::new(),
             MainMenuPlugin,
             AudioPlugin,
             music::MusicPlugin,
+            animation::AnimationPlugin,
+            end::EndPlugin,
+            time_state::TimeStatePlugin,
         ))
         .configure_sets(Update, CharacterSet.run_if(in_state(GameState::Main)))
         .configure_sets(PreUpdate, CharacterSet.run_if(in_state(GameState::Main)))
         .configure_sets(PostUpdate, CharacterSet.run_if(in_state(GameState::Main)))
         .init_state::<GameState>()
-        .init_state::<TimeState>()
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
                 .continue_to_state(GameState::MainMenu)
@@ -59,16 +64,6 @@ fn main() {
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Update, (close_on_escape, animated_sprites::animate_sprites))
         .run();
-}
-
-#[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]
-enum TimeState {
-    Night,
-    Evening,
-    Morning,
-    Day,
-    #[default]
-    None,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash, Default, States)]

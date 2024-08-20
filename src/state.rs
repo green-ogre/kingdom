@@ -1,15 +1,14 @@
 use crate::{
-    character::{Character, Characters, Request, SelectedCharacter},
-    ui::{Decision, DecisionType},
-    CharacterSet, GameState, TimeState,
+    character::{Character, Characters, Request},
+    ui::decision::{Decision, DecisionType},
+    CharacterSet, GameState,
 };
 use bevy::prelude::*;
+pub use handlers::initialize_filters;
 use serde::Deserialize;
 use sickle_ui::ui_commands::UpdateStatesExt;
 
 mod handlers;
-
-pub use handlers::initialize_filters;
 
 pub struct StatePlugin;
 
@@ -18,22 +17,25 @@ impl Plugin for StatePlugin {
         app.add_plugins(handlers::HandlerPlugin)
             .insert_resource(KingdomState {
                 heart_size: 3.,
-                wealth: 100.,
+                wealth: 50.,
+                happiness: 50.,
                 ..Default::default()
             })
-            .add_event::<Decision>()
             .add_event::<NewHeartSize>()
-            .add_event::<EndDay>()
             .add_systems(
                 PostUpdate,
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
                 // this one so one-shot systems have a chance to actually be applied.
-                (state_ui, update_state, check_heart_end_conditions).in_set(CharacterSet),
+                (state_ui, update_state, check_end_conditions).in_set(CharacterSet),
             );
     }
 }
 
 pub const PROSPERITY_THRESHOLDS: [f32; 4] = [10., 20., 30., 40.];
+pub const MAX_HEART_SIZE: f32 = 6.;
+pub const MAX_WEALTH: f32 = 100.;
+pub const MAX_HAPPINESS: f32 = 100.;
+pub const MIN_PROSPERITY: f32 = 150.;
 
 #[derive(Debug, Default, Asset, Resource, Reflect, Clone)]
 pub struct KingdomState {
@@ -44,9 +46,6 @@ pub struct KingdomState {
     pub last_decision: Option<DecisionType>,
     pub day: usize,
 }
-
-#[derive(Event)]
-pub struct EndDay;
 
 #[derive(Debug, Deserialize, Default, Asset, Resource, Reflect, Clone)]
 #[serde(default)]
@@ -72,6 +71,13 @@ impl KingdomState {
         self.last_decision = Some(decision);
         self.heart_size += result.heart_size;
         self.happiness += result.happiness;
+        self.wealth += result.wealth;
+
+        // remove me
+        // self.heart_size = 5.;
+        // self.happiness = 500.;
+        // self.wealth = 500.;
+        // self.day = 3;
 
         if let Some(insight) = result.can_use_insight {
             self.can_use_insight = insight;
@@ -114,7 +120,6 @@ fn update_state(
     system: Res<Characters>,
     response_handlers: Res<handlers::ResponseHandlers>,
     filters: Res<handlers::Filters>,
-    // time_state: Res<State<TimeState>>,
 ) {
     if reader.is_empty() {
         return;
@@ -161,12 +166,6 @@ fn update_state(
     );
 
     commands.run_system(system.choose_new_character);
-    // match time_state.get() {
-    //     TimeState::Day => {
-    //         commands.run_system(system.choose_new_character);
-    //     }
-    //     _ => {}
-    // }
 }
 
 fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<KingdomStateUi>>) {
@@ -175,12 +174,15 @@ fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<Kingdo
     }
 }
 
-fn check_heart_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
-    if state.heart_size <= 0. || state.heart_size >= 6. {
+fn check_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
+    if state.heart_size <= 0. || state.heart_size >= MAX_HEART_SIZE {
         commands.next_state(GameState::Loose);
-    } else if state.wealth > 10000. {
-        commands.next_state(GameState::Win);
     } else if state.day == 3 {
-        commands.next_state(GameState::Win);
+        info!("day 3 end condition check");
+        if state.prosperity() >= MIN_PROSPERITY {
+            commands.next_state(GameState::Win);
+        } else {
+            commands.next_state(GameState::Loose);
+        }
     }
 }

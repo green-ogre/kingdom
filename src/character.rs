@@ -1,9 +1,12 @@
+use crate::animation::set_world_to_black;
+use crate::music::{MusicEvent, MusicKind};
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
-use crate::ui::{handle_morning, set_world_to_black, ActiveMask, DespawnInsight};
+use crate::time_state::{handle_morning, start_in_night, TimeState};
+use crate::ui::insight::DespawnInsight;
+use crate::ui::{ActiveMask, Mask};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
-use crate::{type_writer, CharacterSet, GameState, TimeState};
+use crate::{CharacterSet, GameState};
 use bevy::audio::Volume;
-use bevy::math::VectorSpace;
 use bevy::{
     ecs::system::SystemId,
     input::{keyboard::KeyboardInput, ButtonState},
@@ -27,20 +30,19 @@ impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(YamlAssetPlugin::<Character>::new(&["character.yaml"]))
             .insert_resource(TypeWriter::default())
-            // .insert_resource(SelectedCharacter::default())
+            .insert_resource(ActiveMask(Mask::None))
             .add_systems(
                 OnEnter(GameState::Main),
                 (
                     load_characters,
                     crate::state::initialize_filters,
-                    enter_morning,
+                    entry_point,
                 )
                     .chain(),
             )
             .add_systems(PreUpdate, load_character_sprite)
             .add_systems(OnEnter(TimeState::Day), choose_new_character)
             .add_systems(OnEnter(TimeState::Night), choose_new_character)
-            // .add_systems(OnEnter(GameState::Main), choose_new_character)
             .add_systems(
                 Update,
                 (character_ui, handle_slide_intro).in_set(CharacterSet),
@@ -49,16 +51,39 @@ impl Plugin for CharacterPlugin {
     }
 }
 
-fn enter_morning(mut commands: Commands, server: Res<AssetServer>) {
-    // commands.next_state(TimeState::Morning);
-    let id = commands.register_one_shot_system(set_world_to_black);
-    commands.run_system(id);
-    commands.spawn(AudioBundle {
-        source: server.load("audio/church_bells.wav"),
-        settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
-    });
-    let id = commands.register_one_shot_system(handle_morning);
-    commands.run_system(id);
+fn entry_point(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut event_writer: EventWriter<MusicEvent>,
+    mut state: ResMut<KingdomState>,
+) {
+    // NIGHT STARTUP
+    {
+        // event_writer.send(MusicEvent::Play(MusicKind::Dream));
+        // let id = commands.register_one_shot_system(start_in_night);
+        // commands.run_system(id);
+    }
+
+    // DAY STARTUP
+    {
+        // remove me
+        // state.day = 1;
+        // commands.next_state(TimeState::Day);
+        // event_writer.send(MusicEvent::Play(MusicKind::Day));
+    }
+
+    // NORMAL STARTUP
+    {
+        event_writer.send(MusicEvent::Play(MusicKind::Day));
+        let id = commands.register_one_shot_system(set_world_to_black);
+        commands.run_system(id);
+        commands.spawn(AudioBundle {
+            source: server.load("audio/church_bells.wav"),
+            settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+        });
+        let id = commands.register_one_shot_system(handle_morning);
+        commands.run_system(id);
+    }
 }
 
 #[derive(AssetCollection, Resource)]
@@ -135,6 +160,7 @@ pub fn choose_new_character(
     time_state: Res<State<TimeState>>,
     mut next_time_state: ResMut<NextState<TimeState>>,
     despawn_insight: Res<DespawnInsight>,
+    mut active_mask: ResMut<ActiveMask>,
 ) {
     commands.run_system(despawn_insight.0);
     let mut rng = thread_rng();
@@ -233,6 +259,8 @@ pub fn choose_new_character(
     info!("selecting new character: {:?}", new_character);
     characters.current_key = new_character;
 
+    active_mask.0 = request.mask;
+
     let mut sfx = server.load("audio/interface/Wav/Cursor_tones/cursor_style_2.wav");
     if new_character == "dream-man" {
         sfx = server.load("audio/cursor_style_2_rev.wav");
@@ -295,7 +323,6 @@ fn handle_slide_intro(
     for completion in completed_tweens.read() {
         if completion.user_data == FINISHED_SLIDE {
             if let Ok(selected_character) = selected_character.get_single() {
-                println!("finished slide");
                 commands.entity(selected_character).remove::<SlidingIntro>();
             }
         }
@@ -387,15 +414,24 @@ fn character_ui(
     mut type_writer: ResMut<TypeWriter>,
     mut reader: EventReader<KeyboardInput>,
     time: Res<Time>,
+    mut active_mask: ResMut<ActiveMask>,
+    mut masks: Query<(&mut Visibility, &Mask)>,
 ) {
     let Ok(selected_character) = selected_character.get_single() else {
-        commands.remove_resource::<ActiveMask>();
         for (mut text, _) in character_ui.iter_mut() {
             text.sections[0].style.color.set_alpha(0.);
         }
 
         return;
     };
+
+    for (mut vis, mask) in masks.iter_mut() {
+        if *mask == active_mask.0 {
+            *vis = Visibility::Visible;
+        } else {
+            *vis = Visibility::Hidden;
+        }
+    }
 
     type_writer.increment(&time);
     type_writer.try_play_sound(&mut commands);
@@ -492,7 +528,7 @@ pub struct Character {
 }
 
 impl Character {
-    /// Sample the remaining requests. If at least on is available, it is returned
+    /// Sample the remaining requests. If at least one is available, it is returned
     /// along with its index.
     pub fn sample_requests(&self, day: usize, rng: &mut impl Rng) -> Option<(usize, &Request)> {
         self.requests.get(day).and_then(|requests| {
@@ -557,4 +593,6 @@ pub struct Request {
     pub response_handlers: Vec<String>,
     #[serde(default)]
     pub availability: RequestAvailability,
+    #[serde(default)]
+    pub mask: Mask,
 }
