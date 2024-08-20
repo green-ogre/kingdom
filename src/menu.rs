@@ -354,14 +354,14 @@ fn update_text(
 
             timer.1 += 1;
 
-            if timer.1 == 2 {
+            if timer.1 == 3 {
                 let sfx = server.load("audio/cursor_style_2_rev.wav");
                 let line = "Closely must You watch this beating sieve;\nToo much, too little, and Your heart will give.";
                 *type_writer = TypeWriter::new(line.into(), 0.035, sfx);
                 timer.0.set_duration(Duration::from_secs_f32(7.));
             }
 
-            if timer.1 == 3 {
+            if timer.1 == 5 {
                 commands.next_state(GameState::Main);
                 for entity in enitites.iter() {
                     commands.entity(entity).despawn();
@@ -383,7 +383,7 @@ fn update_text(
             // timer.0.set_duration(Duration::from_secs_f32(2.));
         }
 
-        if timer.1 == 3 {
+        if timer.1 == 5 {
             commands.next_state(GameState::Main);
             for entity in enitites.iter() {
                 commands.entity(entity).despawn();
