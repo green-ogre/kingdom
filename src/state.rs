@@ -2,10 +2,7 @@ use crate::{
     character::{Character, Characters, Request},
     time_state::TimeState,
     ui::decision::{Decision, DecisionType},
-    ui::{
-        decision::{Decision, DecisionType},
-        ActiveMask, Mask,
-    },
+    ui::{ActiveMask, Mask},
     CharacterSet, GameState,
 };
 use bevy::prelude::*;
