@@ -11,7 +11,7 @@ requests:
         heart_size: 1
         last_word: Of course, my King.
     - text: |
-        It seems Your Grace has made special concessions for our wounded. I'm sure my dear brother whispers sweetly. Yet, with such measures, perhaps we can afford more wounded. I would have Your Grace lower the age of conscription by two years.
+        It seems Your Grace has made special concessions for our wounded. I'm sure my dear brother whispers in your ear sweetly as ever. Yet, with such measures, perhaps we can afford more wounded. I would have Your Grace lower the age of conscription by two years.
       filter: princess_disabled_filter
       yes:
         heart_size: -1
@@ -19,10 +19,19 @@ requests:
       no:
         heart_size: 1
   - - text: |
-        That good-for-nothing tramp killed our dear mother on the day of his birth. If you don't grow a spine, he'll be the death of you, too.
+        My King, by all accounts the Kingdom to the East prepares for war against us. I suggest we strike them swiftly and completely, before their preparations are complete.
       yes:
-        heart_size: 1
-        happiness: 10
-        wealth: -10
-      no:
         heart_size: -1
+        wealth: 10
+        last_word: Then we shall mobilize promptly.
+      no:
+        heart_size: 1
+
+  # - - text: |
+  #       That good-for-nothing tramp killed our dear mother on the day of his birth. If you don't grow a spine, he'll be the death of you, too.
+  #     yes:
+  #       heart_size: 1
+  #       happiness: 10
+  #       wealth: -10
+  #     no:
+  #       heart_size: -1

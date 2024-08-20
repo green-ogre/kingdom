@@ -3,10 +3,18 @@ class: Craftsman
 sprite_path: "characters/images/baker"
 requests:
   - - text: |
-        Would your majesty consider releasing the royal grain stores early this year? We in the west were not so fortunate last harvest. I doubt our stores will last, and we can't afford the spring prices.
+        Would Your Majesty consider releasing the royal grain stores early this year? We in the west were not so fortunate last harvest. I doubt our stores will last, and we can't afford the spring prices.
       yes:
         heart_size: 1
         happiness: 5
+        wealth: -10
+      no:
+        heart_size: -1
+  - - text: |
+        Your Majesty, I humbly request that You grant our town access to the golden wheat from our royal fields. With such fine grain, I could bake breads so light and sweet, they'd bring joy to every hearth in the kingdom; all would sing Your Majesty's praises.
+      yes:
+        heart_size: 1
+        happiness: 10
         wealth: -10
       no:
         heart_size: -1

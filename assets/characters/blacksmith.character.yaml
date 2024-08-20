@@ -14,3 +14,11 @@ requests:
       no:
         heart_size: 1
         last_word: What a waste.
+  - - text: |
+        I need yet more men. The youth of today lack resolve, especially in the smithy. Make them come.
+      yes:
+        heart_size: -1
+        happiness: -10
+        wealth: 5
+      no:
+        heart_size: 1

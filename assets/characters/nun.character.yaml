@@ -10,3 +10,10 @@ requests:
       no:
         heart_size: 1
       response_handlers: [nun_paganism]
+  - - text: |
+        My Liege, I fear that our kingdom neglects its scholarly duties. Our academy of the Trivium suffers weak patronage. A royal donation would secure our academy's future for years to come.
+      yes:
+        heart_size: 1
+        wealth: -10
+      no:
+        heart_size: -1

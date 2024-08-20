@@ -11,3 +11,12 @@ requests:
       no:
         heart_size: 1
         last_word: I would never question Your Lordship.
+  - - text: |
+        My Lord King, please have mercy upon Your most humble servant. Lay a thousand curses upon my Duchy if needs must. Indeed, as a token of our gratitude, we would provide ten of our finest slaves and wring our subjects for You royal coffers, if it please Your Majesty.
+      yes:
+        heart_size: -1
+        wealth: 10
+        happiness: -10
+      no:
+        heart_size: 1
+      filter: didnt_fine_duchy

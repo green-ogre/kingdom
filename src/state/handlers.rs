@@ -64,36 +64,39 @@ handler_map! {
     succ,
     set_cardiac_dream,
     set_no_choice,
-    set_this_gift
+    set_this_gift,
+    fine_duchy_handler
+}
+
+macro_rules! set_flag {
+    ($name:ident, $ty:ident, $flag:ident) => {
+        fn $name(state: Res<KingdomState>, mut item: ResMut<$ty>) {
+            match state.last_decision {
+                Some(DecisionType::Yes) => {
+                    item.$flag = Some(true);
+                }
+                Some(DecisionType::No) => {
+                    item.$flag = Some(false);
+                }
+                _ => {}
+            }
+        }
+    };
 }
 
 #[derive(Debug, Default, Resource)]
 pub struct SmithyState {
-    granted_strikers: bool,
+    granted_strikers: Option<bool>,
 }
 
-fn smithy_strikers(state: Res<KingdomState>, mut smithy: ResMut<SmithyState>) {
-    if matches!(state.last_decision, Some(DecisionType::Yes)) {
-        smithy.granted_strikers = true;
-    }
-}
+set_flag!(smithy_strikers, SmithyState, granted_strikers);
 
 #[derive(Debug, Default, Resource)]
 pub struct NunState {
     made_paganism_illegal: Option<bool>,
 }
 
-fn nun_paganism(state: Res<KingdomState>, mut nun: ResMut<NunState>) {
-    match state.last_decision {
-        Some(DecisionType::Yes) => {
-            nun.made_paganism_illegal = Some(true);
-        }
-        Some(DecisionType::No) => {
-            nun.made_paganism_illegal = Some(false);
-        }
-        _ => {}
-    }
-}
+set_flag!(nun_paganism, NunState, made_paganism_illegal);
 
 #[derive(Debug, Default, Resource)]
 pub struct PrinceState {
@@ -101,29 +104,15 @@ pub struct PrinceState {
     housed_disabled: Option<bool>,
 }
 
-fn prince_festival_handler(state: Res<KingdomState>, mut prince: ResMut<PrinceState>) {
-    match state.last_decision {
-        Some(DecisionType::Yes) => {
-            prince.approved_festival = Some(true);
-        }
-        Some(DecisionType::No) => {
-            prince.approved_festival = Some(false);
-        }
-        _ => {}
-    }
+set_flag!(prince_festival_handler, PrinceState, approved_festival);
+set_flag!(prince_disabled_handler, PrinceState, housed_disabled);
+
+#[derive(Debug, Default, Resource)]
+pub struct DuchyState {
+    fined_duchy: Option<bool>,
 }
 
-fn prince_disabled_handler(state: Res<KingdomState>, mut prince: ResMut<PrinceState>) {
-    match state.last_decision {
-        Some(DecisionType::Yes) => {
-            prince.housed_disabled = Some(true);
-        }
-        Some(DecisionType::No) => {
-            prince.housed_disabled = Some(false);
-        }
-        _ => {}
-    }
-}
+set_flag!(fine_duchy_handler, DuchyState, fined_duchy);
 
 // fn dream_transition_to_day(
 //     mut commands: Commands,
@@ -156,22 +145,6 @@ fn prince_disabled_handler(state: Res<KingdomState>, mut prince: ResMut<PrinceSt
 /////////////////////////////
 // DREAM
 /////////////////////////////
-
-macro_rules! set_flag {
-    ($name:ident, $ty:ident, $flag:ident) => {
-        fn $name(state: Res<KingdomState>, mut item: ResMut<$ty>) {
-            match state.last_decision {
-                Some(DecisionType::Yes) => {
-                    item.$flag = Some(true);
-                }
-                Some(DecisionType::No) => {
-                    item.$flag = Some(false);
-                }
-                _ => {}
-            }
-        }
-    };
-}
 
 #[derive(Debug, Default, Resource)]
 pub struct DreamState {
@@ -208,15 +181,15 @@ fn succ(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
     warn!("Do succing");
 }
 
-fn set_cardiac_dream(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn set_cardiac_dream(mut dream: ResMut<DreamState>) {
     dream.cardiac_dream = true;
 }
 
-fn set_no_choice(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn set_no_choice(mut dream: ResMut<DreamState>) {
     dream.no_choice = true;
 }
 
-fn set_this_gift(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn set_this_gift(mut dream: ResMut<DreamState>) {
     dream.this_gift = true;
 }
 
@@ -232,7 +205,8 @@ handler_map! {
     presented,
     cardiac_dream,
     no_choice,
-    this_gift
+    this_gift,
+    didnt_fine_duchy
 }
 
 impl Filters {
@@ -349,4 +323,8 @@ filter_by!(no_choice, "dream-man", DreamState, |ch, state| {
 
 filter_by!(this_gift, "dream-man", DreamState, |ch, state| {
     ch.requests[0][5].availability.filtered = !state.this_gift;
+});
+
+filter_by!(didnt_fine_duchy, "west-duchess", DuchyState, |ch, state| {
+    ch.requests[1][0].availability.filtered = none_or_true(state.fined_duchy);
 });
