@@ -186,8 +186,19 @@ fn setup_background(
 
     commands.spawn((
         SpriteBundle {
-            texture: server.load("ui/night_background.png"),
+            texture: server.load("ui/night_background_clouds1.png"),
             transform: Transform::from_translation(Vec3::default().with_z(-49.).with_y(-1.)),
+            visibility: Visibility::Hidden,
+            ..Default::default()
+        },
+        BackgroundTownNight,
+        ParallaxSprite(0.001),
+        PIXEL_PERFECT_LAYER,
+    ));
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("ui/night_background1.png"),
+            transform: Transform::from_translation(Vec3::default().with_z(-48.).with_y(-1.)),
             visibility: Visibility::Hidden,
             ..Default::default()
         },

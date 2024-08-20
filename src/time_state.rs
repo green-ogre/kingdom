@@ -113,7 +113,9 @@ pub fn start_in_night(
     crowd_audio.single_mut().volume = Volume::new(0.);
     let id = commands.register_one_shot_system(setup_background_particles_for_dream);
     commands.run_system(id);
-    *nigth_village_sprite.single_mut() = Visibility::Visible;
+    for mut sprite in nigth_village_sprite.iter_mut() {
+        *sprite = Visibility::Visible;
+    }
     for mut vis in crowds.iter_mut() {
         *vis = Visibility::Hidden;
     }
@@ -126,7 +128,9 @@ fn show_night(
     mut crowds: Query<&mut Visibility, (With<Crowd>, Without<BackgroundTownNight>)>,
     mut music: EventWriter<MusicEvent>,
 ) {
-    *nigth_village_sprite.single_mut() = Visibility::Visible;
+    for mut sprite in nigth_village_sprite.iter_mut() {
+        *sprite = Visibility::Visible;
+    }
     for mut vis in crowds.iter_mut() {
         *vis = Visibility::Hidden;
     }
@@ -207,7 +211,9 @@ pub fn handle_morning(
         )),
     ));
 
-    *nigth_village_sprite.single_mut() = Visibility::Hidden;
+    for mut sprite in nigth_village_sprite.iter_mut() {
+        *sprite = Visibility::Hidden;
+    }
     for mut vis in crowds.iter_mut() {
         *vis = Visibility::Visible;
     }
