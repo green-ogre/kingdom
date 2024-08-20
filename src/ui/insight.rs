@@ -32,6 +32,7 @@ pub struct Insight {
     pub grace: Timer,
     pub is_held: bool,
     pub character: Option<Handle<Character>>,
+    pub charge: f32,
 }
 
 pub const INSIGHT_CHARGE_TIME: f32 = 2.0;
@@ -42,6 +43,7 @@ impl Default for Insight {
             grace: Timer::from_seconds(INSIGHT_CHARGE_TIME, TimerMode::Repeating),
             is_held: false,
             character: None,
+            charge: 0.,
         }
     }
 }

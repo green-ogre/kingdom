@@ -1,7 +1,7 @@
 use crate::animation::{set_world_to_black, DelayedSpawn};
 use crate::music::MusicEvent;
 use crate::state::{KingdomState, MAX_HEART_SIZE, MIN_PROSPERITY};
-use crate::ui::{HeartUi, StatBar, UiNode};
+use crate::ui::{HeartUi, StatBar, UiNode, HEART_SCALE};
 use crate::GameState;
 use bevy::audio::PlaybackMode;
 use bevy::audio::Volume;
@@ -130,8 +130,8 @@ pub fn enter_death(
             EaseMethod::Linear,
             Duration::from_secs_f32(4.),
             TransformScaleLens {
-                start: heart.scale,
-                end: heart.scale / 2.,
+                start: Vec3::splat(HEART_SCALE / 2.),
+                end: Vec3::splat(HEART_SCALE / 4.),
             },
         );
 

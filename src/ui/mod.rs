@@ -93,9 +93,9 @@ fn startup(mut commands: Commands, mut state: ResMut<KingdomState>, server: Res<
         .with_text_justify(JustifyText::Left)
         .with_style(Style {
             position_type: PositionType::Absolute,
-            left: Val::Px(472.),
-            top: Val::Px(702.7),
-            max_width: Val::Px(980.7),
+            left: Val::Percent(25.5),
+            top: Val::Percent(65.),
+            max_width: Val::Percent(48.7),
             ..Default::default()
         }),
         Name::new("Character Text"),
@@ -158,17 +158,23 @@ pub struct InsightToolTip;
 #[derive(Component)]
 pub struct CursorCanDecide;
 
-#[derive(Component, Default, Reflect)]
-pub struct InsightBar(f32);
-
-#[derive(Component)]
-pub struct InsightBarBorder;
-
 #[derive(Event)]
 pub struct AquireInsight;
 
 #[derive(Component)]
 pub struct InsightChargeSfx;
+
+fn reset_cursor_state(
+    insight: &mut Insight,
+    commands: &mut Commands,
+    insight_sfx: &Query<Entity, With<InsightChargeSfx>>,
+) {
+    insight.is_held = false;
+    insight.grace.reset();
+    for sfx in insight_sfx.iter() {
+        commands.entity(sfx).despawn();
+    }
+}
 
 pub fn update_cursor(
     windows: Query<&Window>,
@@ -182,51 +188,40 @@ pub fn update_cursor(
     mut insight: ResMut<Insight>,
     mut commands: Commands,
     time: Res<Time>,
-    mut selected_character: Query<(Entity, &SelectedCharacter)>,
+    selected_character: Query<(Entity, &SelectedCharacter)>,
     server: Res<AssetServer>,
-    mut insight_bar: Query<(Entity, &mut Transform, &mut InsightBar)>,
-    mut insight_bar_border: Query<
-        (Entity, &mut Transform),
-        (With<InsightBarBorder>, Without<InsightBar>),
-    >,
     insight_sfx: Query<Entity, With<InsightChargeSfx>>,
     state: Res<KingdomState>,
+    mut stat_bars: Query<&mut Visibility, (With<InsightStatBar>, Without<InsightToolTip>)>,
 ) {
     let window = windows.single();
     let Ok((entity, mut style)) = cursor.get_single_mut() else {
         return;
     };
-    let (tool_tip_entity, mut tool_tip_style, mut visibility) = tool_tip.single_mut();
+    let (tool_tip_entity, mut tool_tip_style, mut tool_tip_vis) = tool_tip.single_mut();
 
-    if let Some(world_position) = window.cursor_position() {
-        let left = world_position.x - 125.;
-        let top = world_position.y - 1080. + 40.;
+    if let Some(world_position) = window.physical_cursor_position() {
+        let left = world_position.x / window.resolution.width() * 100.;
+        let top = world_position.y / window.resolution.height() * 100.;
 
-        style.left = Val::Px(left);
-        style.top = Val::Px(top);
+        style.left = Val::Percent(left - 50.);
+        style.top = Val::Percent(top - 50.);
 
-        tool_tip_style.left = Val::Px(left + 200.);
-        tool_tip_style.top = Val::Px(top + 100.);
+        tool_tip_style.left = Val::Percent(left + 5.);
+        tool_tip_style.top = Val::Percent(top - 50. + 5.);
 
-        // println!("{top:?}");
-        if top < -350. && !selected_character.is_empty() {
+        if top < 60. && !selected_character.is_empty() {
             commands.entity(entity).insert(CursorCanDecide);
             insight.grace.tick(time.delta());
 
-            if let Ok((_, mut fill_transform, mut bar)) = insight_bar.get_single_mut() {
-                if let Ok((_, mut border_transform)) = insight_bar_border.get_single_mut() {
-                    bar.0 = insight.grace.remaining().as_secs_f32()
-                        / insight.grace.duration().as_secs_f32();
-                    fill_transform.scale.x = (1.0 - bar.0) * 0.5;
-
-                    border_transform.translation.x = world_position.x / 8. - RES_WIDTH as f32 / 2.;
-                    border_transform.translation.y =
-                        -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.;
-
-                    fill_transform.translation.x =
-                        world_position.x / 8. - RES_WIDTH as f32 / 2. - (74. / 2. * bar.0);
-                    fill_transform.translation.y =
-                        -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.;
+            if insight.is_held {
+                insight.charge = insight.grace.remaining().as_secs_f32()
+                    / insight.grace.duration().as_secs_f32();
+            } else {
+                if insight.character.as_ref() == selected_character.iter().next().map(|s| &s.1 .0) {
+                    insight.charge = 0.0;
+                } else {
+                    insight.charge = 1.0;
                 }
             }
 
@@ -239,37 +234,6 @@ pub fn update_cursor(
                                     != selected_character.iter().next().map(|s| &s.1 .0)
                                 && state.day > 0
                             {
-                                let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
-                                commands.spawn((
-                                    SpriteBundle {
-                                        texture: server.load(bar_path),
-                                        transform: Transform::from_xyz(
-                                            world_position.x / 8. - RES_WIDTH as f32 / 2.,
-                                            -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.,
-                                            310.,
-                                        )
-                                        .with_scale(Vec3::splat(0.5)),
-                                        ..Default::default()
-                                    },
-                                    InsightBarBorder,
-                                    HIGH_RES_LAYER,
-                                ));
-                                let bar_path =
-                                    "ui/Boss bar/Mini Boss bar/mioni_boss_bar_filler x1.png";
-                                commands.spawn((
-                                    SpriteBundle {
-                                        texture: server.load(bar_path),
-                                        transform: Transform::from_xyz(
-                                            world_position.x / 8. - RES_WIDTH as f32 / 2.,
-                                            -world_position.y / 8. + RES_HEIGHT as f32 / 2. - 10.,
-                                            310.,
-                                        )
-                                        .with_scale(Vec3::new(0., 0.5, 0.5)),
-                                        ..Default::default()
-                                    },
-                                    InsightBar(0.),
-                                    HIGH_RES_LAYER,
-                                ));
                                 let sfx_path = "audio/sci-fi-sound-effect-designed-circuits-sfx-tonal-15-202059.mp3";
                                 commands.spawn((
                                     AudioBundle {
@@ -284,17 +248,7 @@ pub fn update_cursor(
                             insight.is_held = true;
                         }
                         ButtonState::Released => {
-                            insight.is_held = false;
-                            if let Ok((entity, _, _)) = insight_bar.get_single() {
-                                commands.entity(entity).despawn();
-                            }
-                            if let Ok((entity, _)) = insight_bar_border.get_single() {
-                                commands.entity(entity).despawn();
-                            }
-                            insight.grace.reset();
-                            for sfx in insight_sfx.iter() {
-                                commands.entity(sfx).despawn();
-                            }
+                            reset_cursor_state(&mut insight, &mut commands, &insight_sfx);
                         }
                     }
 
@@ -304,50 +258,41 @@ pub fn update_cursor(
 
             if insight.grace.finished() && insight.is_held && state.day > 0 {
                 writer.send(AquireInsight);
-                insight.is_held = false;
-                if let Ok((entity, _, _)) = insight_bar.get_single() {
-                    commands.entity(entity).despawn();
-                }
-                if let Ok((entity, _)) = insight_bar_border.get_single() {
-                    commands.entity(entity).despawn();
-                }
-                insight.grace.reset();
-                for sfx in insight_sfx.iter() {
-                    commands.entity(sfx).despawn();
+                reset_cursor_state(&mut insight, &mut commands, &insight_sfx);
+            }
+
+            for mut vis in stat_bars.iter_mut() {
+                if state.day > 0 {
+                    *vis = Visibility::Visible;
+                } else {
+                    *vis = Visibility::Hidden;
                 }
             }
 
             if insight.character.as_ref() != selected_character.iter().next().map(|s| &s.1 .0) {
                 if !selected_character.is_empty() && state.day > 0 {
-                    *visibility = Visibility::Visible;
+                    *tool_tip_vis = Visibility::Visible;
                 }
             } else {
-                *visibility = Visibility::Hidden;
+                *tool_tip_vis = Visibility::Hidden;
             }
         } else {
-            commands.entity(entity).remove::<CursorCanDecide>();
-            if let Ok((entity, _, _)) = insight_bar.get_single() {
-                commands.entity(entity).despawn();
-            }
-            if let Ok((entity, _)) = insight_bar_border.get_single() {
-                commands.entity(entity).despawn();
-            }
-            insight.is_held = false;
-            insight.grace.reset();
-            for sfx in insight_sfx.iter() {
-                commands.entity(sfx).despawn();
-            }
+            reset_cursor_state(&mut insight, &mut commands, &insight_sfx);
 
-            *visibility = Visibility::Hidden;
+            *tool_tip_vis = Visibility::Hidden;
         }
     }
 }
 
 #[derive(Component)]
+pub struct InsightStatBar;
+
+#[derive(Component, PartialEq, Eq)]
 pub enum StatBar {
     Wealth,
     Happiness,
     Heart,
+    Insight,
 }
 
 #[derive(Component)]
@@ -355,6 +300,42 @@ struct Filler;
 
 fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
     const BAR_X: f32 = -76. - 74. / 2.;
+
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
+    commands.spawn((
+        StatBar::Insight,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(-76., 20., 310.).with_scale(Vec3::splat(0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat bar"),
+        InsightStatBar,
+        HIGH_RES_LAYER,
+    ));
+    // commands.spawn((
+    //     StatBar::Insight,
+    //     SpriteBundle {
+    //         texture: server.load("ui/Skill Tree/Icons/Unlocked/x1/Unlocked11.png"),
+    //         transform: Transform::from_xyz(-116., -10., 310.).with_scale(Vec3::splat(0.25)),
+    //         ..Default::default()
+    //     },
+    //     Name::new("Heart"),
+    //     HIGH_RES_LAYER,
+    // ));
+    let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar_filler x1.png";
+    commands.spawn((
+        StatBar::Insight,
+        Filler,
+        SpriteBundle {
+            texture: server.load(bar_path),
+            transform: Transform::from_xyz(BAR_X, 20., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            ..Default::default()
+        },
+        Name::new("Stat filler"),
+        InsightStatBar,
+        HIGH_RES_LAYER,
+    ));
 
     let bar_path = "ui/Boss bar/Mini Boss bar/mioni_boss_bar x1.png";
     commands.spawn((
@@ -459,6 +440,7 @@ fn display_state_bars(
     mut bars: Query<(&mut Transform, &StatBar, &mut Visibility, Has<Filler>)>,
     state: Res<KingdomState>,
     time_state: Res<State<TimeState>>,
+    insight: Res<Insight>,
 ) {
     if *time_state.get() != TimeState::Day && *time_state.get() != TimeState::Night {
         for (_, _, mut vis, _) in bars.iter_mut() {
@@ -466,13 +448,16 @@ fn display_state_bars(
         }
     } else {
         for (mut sprite_transform, bar, mut vis, filler) in bars.iter_mut() {
-            *vis = Visibility::Visible;
+            if *bar != StatBar::Insight {
+                *vis = Visibility::Visible;
+            }
 
             if filler {
                 let new_scale = match bar {
                     StatBar::Wealth => (state.wealth / MAX_WEALTH * 0.5).clamp(0., 0.5),
                     StatBar::Heart => (state.heart_size / MAX_HEART_SIZE * 0.5).clamp(0., 0.5),
                     StatBar::Happiness => (state.happiness / MAX_HAPPINESS * 0.5).clamp(0., 0.5),
+                    StatBar::Insight => ((1.0 - insight.charge) * 0.5).clamp(0., 0.5),
                 };
 
                 let diff = sprite_transform.scale.x - new_scale;

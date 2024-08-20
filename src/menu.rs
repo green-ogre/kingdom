@@ -41,7 +41,8 @@ pub fn setup_cursor(
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     let window = &mut primary_window.single_mut();
-    window.cursor.visible = false;
+    // remove me
+    // window.cursor.visible = false;
 
     commands
         .ui_builder(UiRoot)
@@ -51,7 +52,7 @@ pub fn setup_cursor(
                     UiNode,
                     ImageBundle {
                         image: UiImage::new(server.load("ui/cursor.png")),
-                        transform: Transform::from_scale(Vec3::splat(8.)),
+                        // transform: Transform::from_scale(Vec3::splat(8.)),
                         z_index: ZIndex::Global(100),
                         style: Style {
                             // max_size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
@@ -59,12 +60,26 @@ pub fn setup_cursor(
                             // justify_content: JustifyContent::SpaceAround,
                             ..default()
                         },
-                        calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
+                        // calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
                         ..Default::default()
                     },
                     Cursor,
-                ));
-                row.row(|row| {
+                ))
+                .style()
+                .width(Val::Percent(100.))
+                .height(Val::Percent(100.));
+            });
+        })
+        .style()
+        .width(Val::Percent(100.))
+        .height(Val::Percent(100.))
+        .justify_content(JustifyContent::End);
+
+    commands
+        .ui_builder(UiRoot)
+        .column(|column| {
+            column
+                .row(|row| {
                     row.insert(InsightToolTip);
                     row.spawn((
                         UiNode,
@@ -74,7 +89,7 @@ pub fn setup_cursor(
                             z_index: ZIndex::Global(100),
                             style: Style {
                                 // max_size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                align_items: AlignItems::Start,
+                                // align_items: AlignItems::Start,
                                 // justify_content: JustifyContent::SpaceAround,
                                 ..default()
                             },
@@ -82,48 +97,15 @@ pub fn setup_cursor(
                             ..Default::default()
                         },
                     ));
-                    // row.spawn((ImageBundle {
-                    //     image: UiImage::new(
-                    //         server.load("ui/Skill Tree/Icons/Unlocked/x2/Unlocked11.png"),
-                    //     ),
-                    //     z_index: ZIndex::Global(100),
-                    //     style: Style { ..default() },
-                    //     ..Default::default()
-                    // },))
-                    //     .style()
-                    //     .justify_content(JustifyContent::Start);
-                    // row.spawn((TextBundle::from_section(
-                    //     " -1",
-                    //     TextStyle {
-                    //         font_size: 25.0,
-                    //         font: server.load(FONT_PATH),
-                    //         ..Default::default()
-                    //     },
-                    // ),));
-                    //
-                    // row.spawn((
-                    //     UiNode,
-                    //     TextBundle::from_section(
-                    //         "Aquire Insight",
-                    //         TextStyle {
-                    //             font_size: 30.0,
-                    //             font: server.load(FONT_PATH),
-                    //             ..Default::default()
-                    //         },
-                    //     ),
-                    // ));
                 })
                 .insert(Visibility::Hidden)
                 .style()
-                // .column_gap(Val::Percent(15.))
-                // .row_gap(Val::Percent(20.))
-                .position_type(PositionType::Absolute)
-                .justify_items(JustifyItems::Start);
-            });
+                .width(Val::Percent(100.))
+                .height(Val::Percent(100.));
         })
         .style()
-        // .column_gap(Val::Px(200.))
-        // .row_gap(Val::Px(200.))
+        .width(Val::Percent(100.))
+        .height(Val::Percent(100.))
         .justify_content(JustifyContent::End);
 }
 

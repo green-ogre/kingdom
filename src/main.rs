@@ -1,7 +1,7 @@
 use bevy::{
     input::{keyboard::KeyboardInput, ButtonState},
     prelude::*,
-    window::WindowResolution,
+    window::{PrimaryWindow, WindowResized, WindowResolution},
 };
 use bevy_asset_loader::loading_state::{
     config::ConfigureLoadingState, LoadingState, LoadingStateAppExt,
@@ -33,7 +33,8 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Concoeur".into(),
-                        resolution: WindowResolution::new(1920., 1080.),
+                        resolution: WindowResolution::new(1920., 1080.)
+                            .with_scale_factor_override(1.0),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -61,6 +62,7 @@ fn main() {
                 .load_collection::<CharacterAssets>(),
         )
         .add_systems(Startup, menu::setup_cursor)
+        .add_systems(PreUpdate, update_window_scale_factor.before(CharacterSet))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Update, (close_on_escape, animated_sprites::animate_sprites))
         .run();
@@ -91,4 +93,15 @@ fn close_on_escape(mut input: EventReader<KeyboardInput>, mut writer: EventWrite
             writer.send(AppExit::Success);
         }
     }
+}
+
+fn update_window_scale_factor(
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut resize: EventReader<WindowResized>,
+) {
+    // for resize in resize.read() {
+    //     info!("{resize:?}");
+    //     let mut window = windows.single_mut();
+    //     window.resolution.set(1920., 1080.);
+    // }
 }

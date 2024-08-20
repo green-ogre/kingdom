@@ -68,21 +68,21 @@ fn entry_point(
     {
         // remove me
         // state.day = 1;
-        // commands.next_state(TimeState::Day);
-        // event_writer.send(MusicEvent::Play(MusicKind::Day));
+        commands.next_state(TimeState::Day);
+        event_writer.send(MusicEvent::Play(MusicKind::Day));
     }
 
     // NORMAL STARTUP
     {
-        event_writer.send(MusicEvent::Play(MusicKind::Day));
-        let id = commands.register_one_shot_system(set_world_to_black);
-        commands.run_system(id);
-        commands.spawn(AudioBundle {
-            source: server.load("audio/church_bells.wav"),
-            settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
-        });
-        let id = commands.register_one_shot_system(handle_morning);
-        commands.run_system(id);
+        // event_writer.send(MusicEvent::Play(MusicKind::Day));
+        // let id = commands.register_one_shot_system(set_world_to_black);
+        // commands.run_system(id);
+        // commands.spawn(AudioBundle {
+        //     source: server.load("audio/church_bells.wav"),
+        //     settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+        // });
+        // let id = commands.register_one_shot_system(handle_morning);
+        // commands.run_system(id);
     }
 }
 

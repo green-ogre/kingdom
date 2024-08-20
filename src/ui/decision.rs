@@ -136,11 +136,13 @@ fn selection_ui(
             )
             .with_style(Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(180.),
-                left: Val::Px(140.),
+                top: Val::Percent(17.),
+                left: Val::Percent(5.6),
+                right: Val::Percent(67.2),
                 ..Default::default()
             })
             .with_text_justify(JustifyText::Center),
+            Name::new("I do not Concur"),
             UiNode,
         ));
         commands.spawn((
@@ -155,11 +157,12 @@ fn selection_ui(
             )
             .with_style(Style {
                 position_type: PositionType::Absolute,
-                top: Val::Px(180.),
+                top: Val::Percent(17.),
                 left: Val::Percent(76.),
                 ..Default::default()
             })
             .with_text_justify(JustifyText::Center),
+            Name::new("I Concur"),
             UiNode,
         ));
     }
@@ -171,7 +174,10 @@ fn selection_ui(
 
         let click_sfx = "/home/shane/dev/kingdom/assets/audio/stamp-102627.mp3";
 
-        if mouse.x > 128. && mouse.x < 591. && mouse.y > 141. && mouse.y < 290. {
+        let left = mouse.x / window.resolution.width() * 100.;
+        let top = mouse.y / window.resolution.height() * 100.;
+
+        if left > 6.5 && left < 30. && top > 13.12 && top < 26. {
             if did_click {
                 commands.spawn(AudioBundle {
                     source: server.load(click_sfx),
@@ -192,7 +198,7 @@ fn selection_ui(
                     _ => {}
                 }
             }
-        } else if mouse.x > 1330. && mouse.x < 1791. && mouse.y > 142. && mouse.y < 290. {
+        } else if left > 69. && left < 93. && top > 13. && top < 26. {
             if did_click {
                 commands.spawn(AudioBundle {
                     source: server.load(click_sfx),

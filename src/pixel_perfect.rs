@@ -84,6 +84,10 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
                 target: RenderTarget::Image(image_handle.clone()),
                 ..default()
             },
+            // projection: OrthographicProjection {
+            //     scale: 1.0 / (2. as f32),
+            //     ..default()
+            // },
             ..default()
         },
         InGameCamera,
@@ -103,7 +107,17 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 
     // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYER));
+    commands.spawn((
+        Camera2dBundle {
+            // projection: OrthographicProjection {
+            //     scale: 1.0 / (2. as f32),
+            //     ..default()
+            // },
+            ..Default::default()
+        },
+        OuterCamera,
+        HIGH_RES_LAYER,
+    ));
 }
 
 /// Scales camera projection to fit the window (integer multiples only).
@@ -115,6 +129,6 @@ fn fit_canvas(
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
         let mut projection = projections.single_mut();
-        projection.scale = 1. / h_scale.min(v_scale).round();
+        projection.scale = 1. / h_scale.min(v_scale);
     }
 }

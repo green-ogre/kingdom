@@ -18,11 +18,8 @@ impl Plugin for TimeStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<TimeState>()
             .add_systems(Startup, startup)
-            .add_systems(
-                OnEnter(TimeState::Evening),
-                (increment_day, enter_night).chain(),
-            )
-            .add_systems(OnEnter(TimeState::Morning), enter_morning)
+            .add_systems(OnEnter(TimeState::Evening), enter_night.chain())
+            .add_systems(OnEnter(TimeState::Morning), (increment_day, enter_morning))
             .insert_resource(DayNumberUi::default());
     }
 }
