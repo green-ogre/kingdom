@@ -11,7 +11,7 @@ requests:
       no:
         heart_size: -1
   - - text: |
-        My Lord King, we have made a most grave discovery; a witch lives among us! So that we may rest easy, we would have her executed upon You Majesty's royal scaffolds.
+        My Lord King, we have made a most grave discovery; a witch lives among us! So that we may rest easy, we would have her executed upon Your Majesty's royal scaffolds.
       yes:
         heart_size: -1
         happiness: 5

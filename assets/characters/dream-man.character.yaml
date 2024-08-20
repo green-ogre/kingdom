@@ -44,3 +44,33 @@ requests:
       yes:
       no:
       filter: this_gift
+  # day two
+  - - text: |
+        It seems Your Majesty has maintained a tenuous grasp on kingship.
+      mask: Happy
+      yes:
+      no:
+      response_handlers: [grasp_handler]
+    - text: |
+        Would Your Majesty entertain a suggestion?
+      yes:
+      no:
+      response_handlers: [entertain_handler]
+      filter: entertain_filter
+    - text: |
+        Your kingdom will prosper more easily with wealth than with happiness.
+      mask: Happy
+      yes:
+      no:
+      response_handlers: [prosper_handler]
+      filter: prosper_filter
+    - text: |
+        Very well, then I will say only this; listen well to Your progeny. They harbor great potential.
+      yes:
+      no:
+      filter: only_filter
+    - text: |
+        What's more; listen well to Your progeny. They harbor great potential.
+      yes:
+      no:
+      filter: more_filter
