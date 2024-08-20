@@ -15,6 +15,7 @@ impl Plugin for HandlerPlugin {
         app.insert_resource(SmithyState::default())
             .insert_resource(NunState::default())
             .insert_resource(PrinceState::default())
+            .insert_resource(PrincessState::default())
             .insert_resource(DreamState::default())
             .insert_resource(DuchyState::default())
             .add_systems(
@@ -73,7 +74,11 @@ handler_map! {
     fine_duchy_handler,
     grasp_handler,
     entertain_handler,
-    prosper_handler
+    prosper_handler,
+    princess_conscription_handler,
+    princess_alliance_handler,
+    accord_handler,
+    kill_handler
 }
 
 macro_rules! set_flag {
@@ -122,6 +127,19 @@ pub struct DuchyState {
 
 set_flag!(fine_duchy_handler, DuchyState, fined_duchy);
 
+#[derive(Debug, Default, Resource)]
+pub struct PrincessState {
+    lowered_conscription: Option<bool>,
+    made_alliance: Option<bool>,
+}
+
+set_flag!(
+    princess_conscription_handler,
+    PrincessState,
+    lowered_conscription
+);
+set_flag!(princess_alliance_handler, PrincessState, made_alliance);
+
 // fn dream_transition_to_day(
 //     mut commands: Commands,
 //     prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
@@ -165,6 +183,10 @@ pub struct DreamState {
     prosper: bool,
     only: bool,
     more: bool,
+    kill_prince: bool,
+    kill_princess: bool,
+    sanction: bool,
+    done: bool,
 }
 
 set_flag!(dream_summon, DreamState, said_summoned);
@@ -239,6 +261,36 @@ fn prosper_handler(mut dream: ResMut<DreamState>) {
     dream.more = true;
 }
 
+fn accord_handler(
+    mut dream: ResMut<DreamState>,
+    prince: Res<PrinceState>,
+    princess: Res<PrincessState>,
+) {
+    let total_prince = prince.approved_festival.unwrap_or_default() as u32
+        + prince.housed_disabled.unwrap_or_default() as u32;
+
+    let total_princess = princess.lowered_conscription.unwrap_or_default() as u32
+        + princess.made_alliance.unwrap_or_default() as u32;
+
+    if total_prince >= total_princess {
+        dream.kill_prince = true;
+    } else {
+        dream.kill_princess = true;
+    }
+}
+
+fn kill_handler(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    match state.last_decision {
+        Some(DecisionType::Yes) => {
+            dream.done = true;
+        }
+        Some(DecisionType::No) => {
+            dream.sanction = true;
+        }
+        _ => {}
+    }
+}
+
 handler_map! {
     /// Request filters.
     ///
@@ -256,7 +308,11 @@ handler_map! {
     entertain_filter,
     prosper_filter,
     only_filter,
-    more_filter
+    more_filter,
+    dream_princess_filter,
+    dream_prince_filter,
+    dream_sanction_filter,
+    dream_done_filter
 }
 
 impl Filters {
@@ -389,6 +445,32 @@ filter_by!(only_filter, "dream-man", DreamState, |ch, state| {
 
 filter_by!(more_filter, "dream-man", DreamState, |ch, state| {
     ch.requests[1][4].availability.filtered = !state.more;
+});
+
+filter_by!(dream_prince_filter, "dream-man", DreamState, |ch, state| {
+    ch.requests[2][1].availability.filtered = !state.kill_prince;
+});
+
+filter_by!(
+    dream_princess_filter,
+    "dream-man",
+    DreamState,
+    |ch, state| {
+        ch.requests[2][2].availability.filtered = !state.kill_princess;
+    }
+);
+
+filter_by!(
+    dream_sanction_filter,
+    "dream-man",
+    DreamState,
+    |ch, state| {
+        ch.requests[2][3].availability.filtered = !state.sanction;
+    }
+);
+
+filter_by!(dream_done_filter, "dream-man", DreamState, |ch, state| {
+    ch.requests[2][4].availability.filtered = !state.done;
 });
 
 filter_by!(didnt_fine_duchy, "west-duchess", DuchyState, |ch, state| {

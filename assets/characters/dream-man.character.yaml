@@ -61,28 +61,77 @@ requests:
         It seems Your Majesty has maintained a tenuous grasp on kingship.
       mask: Happy
       yes:
+        text: "..."
       no:
+        text: "..."
       response_handlers: [grasp_handler]
     - text: |
         Would Your Majesty entertain a suggestion?
       yes:
+        text: "Yes"
       no:
+        text: "No"
       response_handlers: [entertain_handler]
       filter: entertain_filter
     - text: |
         Your kingdom will prosper more easily with wealth than with happiness.
       mask: Happy
       yes:
+        text: "..."
       no:
+        text: "..."
       response_handlers: [prosper_handler]
       filter: prosper_filter
     - text: |
         Very well, then I will say only this; listen well to Your progeny. They harbor great potential.
       yes:
+        text: "..."
       no:
+        text: "..."
       filter: only_filter
     - text: |
         What's more; listen well to Your progeny. They harbor great potential.
       yes:
+        text: "..."
       no:
+        text: "Begone"
       filter: more_filter
+  - - text: |
+        I offer an accord.
+      yes:
+        text: "..."
+      no:
+        text: "..."
+      response_handlers: [accord_handler]
+    - text: |
+        Kill Your son, the Prince. It must be thought an assassination. Do so, and Your kingdom will come upon great fortune.
+      yes:
+        text: "I accept"
+        wealth: 40
+      no:
+        text: "Never!"
+      response_handlers: [kill_handler]
+      filter: dream_prince_filter
+    - text: |
+        Kill Your daughter, the Crown Princess. Give her over to the roving barbarians so that she may be sacrificed to their gods. Do so, and Your kingdom will come upon great happiness.
+      yes:
+        text: "I accept"
+        happiness: 60
+      no:
+        text: "Never!"
+      response_handlers: [kill_handler]
+      filter: dream_princess_filter
+    - text: |
+        I only sanction what's best for the kingdom, my Lord King.
+      yes:
+        text: "..."
+      no:
+        text: "..."
+      filter: dream_sanction_filter
+    - text: |
+        Very well. It is done.
+      yes:
+        text: "..."
+      no:
+        text: "..."
+      filter: dream_done_filter

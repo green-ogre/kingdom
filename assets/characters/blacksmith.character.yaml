@@ -9,7 +9,7 @@ requests:
       response_handlers: [smithy_strikers]
       yes:
         heart_size: -1
-        happiness: -10
+        happiness: -7
         wealth: 5
         text: Provision slaves
       no:
@@ -19,7 +19,7 @@ requests:
         I need yet more men. The youth of today lack resolve, especially in the smithy. Make them come.
       yes:
         heart_size: -1
-        happiness: -10
+        happiness: -7
         wealth: 5
         text: Provision slaves
       no:

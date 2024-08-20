@@ -15,7 +15,8 @@ requests:
         My Liege, I fear that our kingdom neglects its scholarly duties. Our academy of the Trivium suffers weak patronage. A royal donation would secure our academy's future for years to come.
       yes:
         heart_size: 1
-        wealth: -10
+        wealth: -5
+        happiness: 5
         text: Foster education
       no:
         heart_size: -1

@@ -82,27 +82,31 @@ fn entry_point(
         // event_writer.send(MusicEvent::Play(MusicKind::Day));
     }
 
+    #[cfg(debug_assertions)]
     {
-        // state.day = 2;
-        // state.wealth = 150.;
-        // state.happiness = 150.;
-        // commands.next_state(GameState::);
+        state.day = 2;
+        state.wealth = 150.;
+        state.happiness = 150.;
+        let id = commands.register_one_shot_system(set_world_to_black);
+        commands.run_system(id);
+        let id = commands.register_one_shot_system(handle_morning);
+        commands.run_system(id);
         // state.heart_size = 0.;
-        // commands.next_state(GameState::Loose);
     }
 
     // NORMAL STARTUP
-    // {
-    event_writer.send(MusicEvent::Play(MusicKind::Day));
-    let id = commands.register_one_shot_system(set_world_to_black);
-    commands.run_system(id);
-    commands.spawn(AudioBundle {
-        source: server.load("audio/church_bells.wav"),
-        settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
-    });
-    let id = commands.register_one_shot_system(handle_morning);
-    commands.run_system(id);
-    // }
+    #[cfg(not(debug_assertions))]
+    {
+        event_writer.send(MusicEvent::Play(MusicKind::Day));
+        let id = commands.register_one_shot_system(set_world_to_black);
+        commands.run_system(id);
+        commands.spawn(AudioBundle {
+            source: server.load("audio/church_bells.wav"),
+            settings: PlaybackSettings::DESPAWN.with_volume(Volume::new(0.5)),
+        });
+        let id = commands.register_one_shot_system(handle_morning);
+        commands.run_system(id);
+    }
 }
 
 #[derive(AssetCollection, Resource)]

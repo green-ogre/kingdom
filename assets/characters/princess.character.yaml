@@ -6,6 +6,7 @@ requests:
         My King, before us lies an unusual opportunity. I've received word that the Lower Kingdom, which Your Majesty may recall is especially brutal, seeks our alliance. We would do well to graciously accept. We could use a few more honored guests in our court, if it please Your majesty.
       yes:
         heart_size: -1
+        wealth: 10
         last_word: I shall bring glad tidings.
       no:
         heart_size: 1
@@ -25,6 +26,14 @@ requests:
         heart_size: -1
         wealth: 10
         last_word: Then we shall mobilize promptly.
+      no:
+        heart_size: 1
+  - - text: |
+        My King, I believe the time is right to crush the Lower Kingdom. I've prepared my finest men, and I await Your order.
+      yes:
+        heart_size: -1
+        wealth: 10
+        text: Crush
       no:
         heart_size: 1
 

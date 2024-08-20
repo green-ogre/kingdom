@@ -59,7 +59,7 @@ fn should_not_die(state: Res<KingdomState>) -> bool {
 fn should_die(state: Res<KingdomState>) -> bool {
     if state.heart_size <= 0. || state.heart_size >= MAX_HEART_SIZE {
         true
-    } else if state.day == 2 {
+    } else if state.day >= 2 {
         if state.prosperity() >= MIN_PROSPERITY {
             false
         } else {
@@ -279,8 +279,7 @@ fn show_revolution(
 
     let sfx = server.load("audio/cursor_style_2_rev.wav");
     *type_writer = TypeWriter::new(
-        "Pity... Your kingdom, sullied by your own wretched calamity\nnow revolts against you."
-            .into(),
+        "Alas, dear King, You have failed to deliver Your kingdom unto prosperity.".into(),
         0.035,
         sfx,
     );
@@ -339,8 +338,11 @@ fn handle_revolution(
 
             if timer.1 >= 1 {
                 let sfx = server.load("audio/cursor_style_2_rev.wav");
-                *type_writer =
-                    TypeWriter::new("You were no better than the last...".into(), 0.05, sfx);
+                *type_writer = TypeWriter::new(
+                    "Here ends the peculiar affliction of Your bloodline.".into(),
+                    0.05,
+                    sfx,
+                );
             }
         }
     }
@@ -357,7 +359,11 @@ fn handle_revolution(
 
         if timer.1 >= 1 {
             let sfx = server.load("audio/cursor_style_2_rev.wav");
-            *type_writer = TypeWriter::new("You were no better than the last...".into(), 0.05, sfx);
+            *type_writer = TypeWriter::new(
+                "Here ends the peculiar affliction of Your bloodline.".into(),
+                0.05,
+                sfx,
+            );
         }
     }
 

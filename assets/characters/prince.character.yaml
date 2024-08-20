@@ -10,7 +10,7 @@ requests:
       yes:
         heart_size: 1
         happiness: 15
-        wealth: -10
+        wealth: -5
         mask: Happy
         text: Sponsor festival
       no:
@@ -22,7 +22,7 @@ requests:
       yes:
         heart_size: 1
         happiness: 10
-        wealth: -10
+        wealth: -3
         text: Build home
       no:
         heart_size: -1
@@ -31,7 +31,16 @@ requests:
       yes:
         heart_size: 1
         happiness: 10
-        wealth: -10
-        text: Distribute reserves
+        wealth: -3
+        text: Distribute
+      no:
+        heart_size: -1
+  - - text: |
+        My Lord Father, there are a shameful number children left out in the cold throughout our streets. I humbly request that we build a home for these little ones, too.
+      yes:
+        heart_size: 1
+        happiness: 10
+        wealth: -3
+        text: Build home
       no:
         heart_size: -1

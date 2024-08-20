@@ -7,8 +7,8 @@ requests:
       yes:
         text: Release stores
         heart_size: 1
-        happiness: 5
-        wealth: -10
+        happiness: 10
+        wealth: -5
       no:
         heart_size: -1
   - - text: |
@@ -16,6 +16,6 @@ requests:
       yes:
         heart_size: 1
         happiness: 10
-        wealth: -10
+        wealth: -3
       no:
         heart_size: -1
