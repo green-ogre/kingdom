@@ -20,5 +20,5 @@ requests:
         last_word: Excellent news.
       no:
         heart_size: 1
-        last_word: Yes, You Majesty.
+        last_word: Yes, Your Majesty.
       response_handlers: [fine_duchy_handler]

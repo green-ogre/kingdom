@@ -70,7 +70,10 @@ handler_map! {
     set_cardiac_dream,
     set_no_choice,
     set_this_gift,
-    fine_duchy_handler
+    fine_duchy_handler,
+    grasp_handler,
+    entertain_handler,
+    prosper_handler
 }
 
 macro_rules! set_flag {
@@ -158,6 +161,10 @@ pub struct DreamState {
     cardiac_dream: bool,
     no_choice: bool,
     this_gift: bool,
+    entertain: bool,
+    prosper: bool,
+    only: bool,
+    more: bool,
 }
 
 set_flag!(dream_summon, DreamState, said_summoned);
@@ -198,6 +205,27 @@ fn set_this_gift(mut dream: ResMut<DreamState>) {
     dream.this_gift = true;
 }
 
+fn entertain_handler(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+    match state.last_decision {
+        Some(DecisionType::Yes) => {
+            dream.prosper = true;
+        }
+        Some(DecisionType::No) => {
+            dream.only = true;
+
+        }
+        _ => {}
+    }
+}
+
+fn grasp_handler(mut dream: ResMut<DreamState>) {
+    dream.entertain = true;
+}
+
+fn prosper_handler(mut dream: ResMut<DreamState>) {
+    dream.more = true;
+}
+
 handler_map! {
     /// Request filters.
     ///
@@ -211,7 +239,11 @@ handler_map! {
     cardiac_dream,
     no_choice,
     this_gift,
-    didnt_fine_duchy
+    didnt_fine_duchy,
+    entertain_filter,
+    prosper_filter,
+    only_filter,
+    more_filter
 }
 
 impl Filters {
@@ -328,6 +360,22 @@ filter_by!(no_choice, "dream-man", DreamState, |ch, state| {
 
 filter_by!(this_gift, "dream-man", DreamState, |ch, state| {
     ch.requests[0][5].availability.filtered = !state.this_gift;
+});
+
+filter_by!(entertain_filter, "dream-man", DreamState, |ch, state| {
+    ch.requests[1][1].availability.filtered = !state.entertain;
+});
+
+filter_by!(prosper_filter, "dream-man", DreamState, |ch, state| {
+    ch.requests[1][2].availability.filtered = !state.prosper;
+});
+
+filter_by!(only_filter, "dream-man", DreamState, |ch, state| {
+    ch.requests[1][3].availability.filtered = !state.only;
+});
+
+filter_by!(more_filter, "dream-man", DreamState, |ch, state| {
+    ch.requests[1][4].availability.filtered = !state.more;
 });
 
 filter_by!(didnt_fine_duchy, "west-duchess", DuchyState, |ch, state| {
