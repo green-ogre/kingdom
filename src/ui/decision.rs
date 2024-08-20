@@ -180,19 +180,19 @@ fn selection_ui(
             .read()
             .any(|i| i.state == ButtonState::Pressed && i.button == MouseButton::Left);
 
-        let click_sfx = "/home/shane/dev/kingdom/assets/audio/stamp-102627.mp3";
+        let click_sfx = "audio/stamp-102627.mp3";
 
         let left = mouse.x / window.resolution.width() * 100.;
         let top = mouse.y / window.resolution.height() * 100.;
 
         if left > 6.5 && left < 30. && top > 13.12 && top < 26. {
             if did_click {
-                commands.spawn(AudioBundle {
-                    source: server.load(click_sfx),
-                    settings: PlaybackSettings::DESPAWN
-                        .with_volume(Volume::new(0.5))
-                        .with_speed(1.8),
-                });
+                //     commands.spawn(AudioBundle {
+                //         source: server.load(click_sfx),
+                //         settings: PlaybackSettings::DESPAWN
+                //             .with_volume(Volume::new(0.5))
+                //             .with_speed(1.8),
+                //     });
                 writer.send(Decision::No(selected_character.0.clone()));
             }
 
@@ -208,12 +208,12 @@ fn selection_ui(
             }
         } else if left > 69. && left < 93. && top > 13. && top < 26. {
             if did_click {
-                commands.spawn(AudioBundle {
-                    source: server.load(click_sfx),
-                    settings: PlaybackSettings::DESPAWN
-                        .with_volume(Volume::new(0.5))
-                        .with_speed(1.8),
-                });
+                // commands.spawn(AudioBundle {
+                //     source: server.load(click_sfx),
+                //     settings: PlaybackSettings::DESPAWN
+                //         .with_volume(Volume::new(0.5))
+                //         .with_speed(1.8),
+                // });
                 writer.send(Decision::Yes(selected_character.0.clone()));
             }
 
