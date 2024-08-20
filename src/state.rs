@@ -16,13 +16,14 @@ pub struct StatePlugin;
 impl Plugin for StatePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(handlers::HandlerPlugin)
+            .add_event::<NewHeartSize>()
             .insert_resource(KingdomState {
                 heart_size: 3.,
                 wealth: 50.,
                 happiness: 50.,
                 ..Default::default()
             })
-            .add_event::<NewHeartSize>()
+            .add_systems(OnEnter(GameState::Main), startup)
             .add_systems(
                 PostUpdate,
                 // TODO: check_end_conditions or its equivalent should be moved to a schedule _after_
@@ -30,6 +31,15 @@ impl Plugin for StatePlugin {
                 (state_ui, update_state, check_end_conditions).in_set(CharacterSet),
             );
     }
+}
+
+fn startup(mut commands: Commands) {
+    commands.insert_resource(KingdomState {
+        heart_size: 3.,
+        wealth: 50.,
+        happiness: 50.,
+        ..Default::default()
+    });
 }
 
 pub const PROSPERITY_THRESHOLDS: [f32; 4] = [10., 20., 30., 40.];
@@ -183,7 +193,7 @@ fn check_end_conditions(
 ) {
     if state.heart_size <= 0. || state.heart_size >= MAX_HEART_SIZE {
         commands.next_state(GameState::Loose);
-    } else if state.day == 3 && *time.get() == TimeState::Evening {
+    } else if state.day == 2 && *time.get() == TimeState::Evening {
         info!("day 3 end condition check");
         if state.prosperity() >= MIN_PROSPERITY {
             commands.next_state(GameState::Win);

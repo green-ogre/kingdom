@@ -6,7 +6,7 @@ use crate::time_state::{handle_morning, start_in_night, TimeState};
 use crate::ui::insight::DespawnInsight;
 use crate::ui::{ActiveMask, Mask};
 use crate::{state::KingdomState, type_writer::TypeWriter, StateUpdate};
-use crate::{CharacterSet, GameState};
+use crate::{CharacterSet, GameState, SkipRemove};
 use bevy::audio::Volume;
 use bevy::{
     ecs::system::SystemId,
@@ -41,7 +41,7 @@ impl Plugin for CharacterPlugin {
                 )
                     .chain(),
             )
-            .add_systems(PreUpdate, load_character_sprite.in_set(CharacterSet))
+            .add_systems(PreUpdate, load_character_sprite)
             .add_systems(OnEnter(TimeState::Day), choose_new_character)
             .add_systems(OnEnter(TimeState::Night), choose_new_character)
             .add_systems(
@@ -77,6 +77,8 @@ fn entry_point(
 
     {
         // state.day = 3;
+        // state.wealth = 150.;
+        // state.happiness = 150.;
         // commands.next_state(GameState::);
         // state.heart_size = 0.;
         // commands.next_state(GameState::Loose);
@@ -322,6 +324,7 @@ pub fn choose_new_character(
                 false
             }
         } else {
+            info!("spawning character with slide");
             commands.spawn((SelectedCharacter(new_handle), SlidingIntro));
             true
         };
@@ -391,6 +394,8 @@ fn load_character_sprite(
                 let body_texture =
                     server.load(format!("{}_body.png", character.sprite_path.trim()));
 
+                info!("adding {:?} sprite", character.name);
+
                 let head = commands
                     .spawn((
                         SpriteBundle {
@@ -404,6 +409,7 @@ fn load_character_sprite(
                         },
                         CharacterSprite::Head,
                         Head,
+                        SkipRemove,
                         PIXEL_PERFECT_LAYER,
                     ))
                     .id();
@@ -417,6 +423,7 @@ fn load_character_sprite(
                             ..Default::default()
                         },
                         CharacterSprite::Body,
+                        SkipRemove,
                         PIXEL_PERFECT_LAYER,
                     ))
                     .add_child(head)

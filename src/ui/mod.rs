@@ -307,6 +307,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(-76., 20., 310.).with_scale(Vec3::splat(0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat bar"),
@@ -330,6 +331,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(BAR_X, 20., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat filler"),
@@ -343,6 +345,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(-76., -10., 310.).with_scale(Vec3::splat(0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat bar"),
@@ -353,6 +356,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load("ui/Skill Tree/Icons/Unlocked/x1/Unlocked11.png"),
             transform: Transform::from_xyz(-116., -10., 310.).with_scale(Vec3::splat(0.25)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Heart"),
@@ -365,6 +369,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(BAR_X, -10., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat filler"),
@@ -376,6 +381,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(-76., 0., 310.).with_scale(Vec3::splat(0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat bar"),
@@ -386,6 +392,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load("ui/happiness.png"),
             transform: Transform::from_xyz(-116., 0., 310.).with_scale(Vec3::splat(0.25 / 2.)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         HIGH_RES_LAYER,
@@ -397,6 +404,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(BAR_X, 0., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat filler"),
@@ -408,6 +416,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(-76., 10., 310.).with_scale(Vec3::splat(0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat bar"),
@@ -418,6 +427,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load("ui/wealth.png"),
             transform: Transform::from_xyz(-116., 10., 310.).with_scale(Vec3::splat(0.25 / 2.)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         HIGH_RES_LAYER,
@@ -429,6 +439,7 @@ fn setup_state_bars(mut commands: Commands, server: Res<AssetServer>) {
         SpriteBundle {
             texture: server.load(bar_path),
             transform: Transform::from_xyz(BAR_X, 10., 309.).with_scale(Vec3::new(0., 0.5, 0.5)),
+            visibility: Visibility::Hidden,
             ..Default::default()
         },
         Name::new("Stat filler"),

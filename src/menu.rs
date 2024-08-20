@@ -20,11 +20,14 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::MainMenu), (setup_effect, setup))
-            .add_systems(Update, parallax_sprites)
-            .add_systems(Update, (update_text,).run_if(in_state(GameState::MainMenu)))
-            .add_systems(Update, crate::ui::update_cursor)
-            .add_plugins(HanabiPlugin);
+        app.add_systems(
+            OnEnter(GameState::MainMenu),
+            (setup_effect, setup, setup_cursor),
+        )
+        .add_systems(Update, parallax_sprites)
+        .add_systems(Update, (update_text,).run_if(in_state(GameState::MainMenu)))
+        .add_systems(Update, crate::ui::update_cursor)
+        .add_plugins(HanabiPlugin);
     }
 }
 
@@ -37,8 +40,7 @@ pub fn setup_cursor(
     mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     let window = &mut primary_window.single_mut();
-    // remove me
-    // window.cursor.visible = false;
+    window.cursor.visible = false;
 
     commands
         .ui_builder(UiRoot)
@@ -61,13 +63,11 @@ pub fn setup_cursor(
                     },
                     Cursor,
                 ))
-                .insert(SkipRemove)
                 .style()
                 .width(Val::Percent(100.))
                 .height(Val::Percent(100.));
             });
         })
-        .insert(SkipRemove)
         .style()
         .width(Val::Percent(100.))
         .height(Val::Percent(100.))
@@ -94,16 +94,13 @@ pub fn setup_cursor(
                             // calculated_size: ContentSize::fixed_size(Vec2::new(240., 125.)),
                             ..Default::default()
                         },
-                    ))
-                    .insert(SkipRemove);
+                    ));
                 })
-                .insert(SkipRemove)
                 .insert(Visibility::Hidden)
                 .style()
                 .width(Val::Percent(100.))
                 .height(Val::Percent(100.));
         })
-        .insert(SkipRemove)
         .style()
         .width(Val::Percent(100.))
         .height(Val::Percent(100.))
@@ -116,7 +113,17 @@ struct EnterMorningTimer(Timer, u32, bool);
 #[derive(Component)]
 struct Intro;
 
-fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResMut<TypeWriter>) {
+fn setup(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut type_writer: ResMut<TypeWriter>,
+    mut cursor: Query<&mut Visibility, With<Cursor>>,
+) {
+    for mut vis in cursor.iter_mut() {
+        info!("showing cursor");
+        *vis = Visibility::Visible;
+    }
+
     commands.insert_resource(EnterMorningTimer(
         Timer::from_seconds(5., TimerMode::Repeating),
         0,

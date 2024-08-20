@@ -2,10 +2,12 @@ use crate::animation::{
     set_world_to_black, AudioVolumeLens, DelayedSpawn, FadeFromBlack, FadeToBlack,
     FadeToBlackSprite,
 };
+use crate::character::{Character, CharacterSprite, SelectedCharacterSprite};
 use crate::menu::ParallaxSprite;
 use crate::music::MusicEvent;
 use crate::pixel_perfect::HIGH_RES_LAYER;
 use crate::state::{KingdomState, MAX_HEART_SIZE, MAX_PROSPERITY, MIN_PROSPERITY};
+use crate::time_state::TimeState;
 use crate::type_writer::TypeWriter;
 use crate::ui::background::{
     BackgroundParticles, BackgroundTownNight, Crowd, CrowdAudio, CROWD_VOLUME,
@@ -57,7 +59,7 @@ fn should_not_die(state: Res<KingdomState>) -> bool {
 fn should_die(state: Res<KingdomState>) -> bool {
     if state.heart_size <= 0. || state.heart_size >= MAX_HEART_SIZE {
         true
-    } else if state.day == 3 {
+    } else if state.day == 2 {
         if state.prosperity() >= MIN_PROSPERITY {
             false
         } else {
@@ -165,7 +167,7 @@ pub fn setup_background_particles_for_revolution(
     info!("spawning background particles for dream");
     commands.spawn((
         ParticleEffectBundle {
-            effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(-20.)),
+            effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(0.)),
             ..Default::default()
         },
         BackgroundParticles,
@@ -180,7 +182,7 @@ fn show_revolution(
     mut commands: Commands,
     server: Res<AssetServer>,
     mut background: Query<&mut Visibility, With<BackgroundTownNight>>,
-    mut crowds: Query<&mut Transform, With<Crowd>>,
+    mut crowds: Query<(Entity, &mut Transform), With<Crowd>>,
     ui: Query<Entity, With<UiNode>>,
     mut type_writer: ResMut<TypeWriter>,
 ) {
@@ -193,12 +195,17 @@ fn show_revolution(
         commands.entity(entity).despawn();
     }
 
-    for mut crowd in crowds.iter_mut() {
-        // crowd.translation.y -= 70.;
-        crowd.translation.y -= 700.;
+    for (entity, mut transform) in crowds.iter_mut() {
+        transform.translation.y -= 50.;
+        commands.entity(entity).remove::<ParallaxSprite>();
     }
 
-    *background.single_mut() = Visibility::Visible;
+    // *background.single_mut() = Visibility::Visible;
+    commands.spawn(SpriteBundle {
+        texture: server.load("ui/burning_village.png"),
+        transform: Transform::from_xyz(0., -1., -49.),
+        ..Default::default()
+    });
 
     let id = commands.register_one_shot_system(|mut commands: Commands| {
         commands.next_state(GameState::Revolution);
@@ -294,10 +301,8 @@ fn handle_revolution(
     server: Res<AssetServer>,
 ) {
     let mut enter_next_state = || {
-        commands.next_state(GameState::MainMenu);
-        for entity in enitites.iter() {
-            commands.entity(entity).despawn();
-        }
+        let id = commands.register_one_shot_system(reset_game);
+        commands.run_system(id);
     };
 
     if !timer.2 {
@@ -533,16 +538,32 @@ fn spawn_loose_ui(
 }
 
 fn reset_game(
+    mut prev_sel_sprite: Query<
+        (Entity, &mut Transform, &CharacterSprite),
+        With<SelectedCharacterSprite>,
+    >,
     mut commands: Commands,
     entities: Query<Entity, (Without<PrimaryWindow>, Without<SkipRemove>)>,
     mut sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
 ) {
+    for (entity, mut transform, info) in prev_sel_sprite.iter_mut() {
+        commands
+            .entity(entity)
+            .remove::<SelectedCharacterSprite>()
+            .remove::<ParallaxSprite>();
+
+        if *info == CharacterSprite::Body {
+            transform.translation.x = 300.;
+        }
+    }
+
     for entity in entities.iter() {
         commands.entity(entity).despawn();
     }
-
     sprite.single_mut().color.set_alpha(0.);
+
     commands.next_state(GameState::MainMenu);
+    commands.next_state(TimeState::None);
 }
 
 fn show_win(
@@ -910,10 +931,9 @@ fn handle_win(
             } if *state
                 == ButtonState::Pressed
         ) {
-            commands.next_state(GameState::Main);
-            for entity in enitites.iter() {
-                commands.entity(entity).despawn();
-            }
+            let id = commands.register_one_shot_system(reset_game);
+            commands.run_system(id);
+
             return;
         }
     }

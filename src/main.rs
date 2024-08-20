@@ -61,7 +61,7 @@ fn main() {
                 .continue_to_state(GameState::MainMenu)
                 .load_collection::<CharacterAssets>(),
         )
-        .add_systems(Startup, menu::setup_cursor)
+        // .add_systems(Startup, menu::setup_cursor)
         .add_systems(PreUpdate, update_window_scale_factor.before(CharacterSet))
         .insert_resource(ClearColor(Color::BLACK))
         .add_systems(Update, (close_on_escape, animated_sprites::animate_sprites))
