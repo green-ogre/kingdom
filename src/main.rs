@@ -35,7 +35,6 @@ fn main() {
                         resolution: WindowResolution::new(1920., 1080.)
                             .with_scale_factor_override(1.0),
                         mode: bevy::window::WindowMode::BorderlessFullscreen,
-
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -45,7 +44,6 @@ fn main() {
             StatePlugin,
             UiPlugin,
             PixelPerfectPlugin,
-            // WorldInspectorPlugin::new(),
             MainMenuPlugin,
             AudioPlugin,
             music::MusicPlugin,
@@ -88,6 +86,7 @@ pub struct SkipRemove;
 struct CharacterSet;
 
 fn close_on_escape(mut input: EventReader<KeyboardInput>, mut writer: EventWriter<AppExit>) {
+    #[cfg(debug_assertions)]
     for e in input.read() {
         if matches!(e, KeyboardInput {
             key_code,
