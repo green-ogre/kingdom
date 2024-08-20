@@ -1,4 +1,5 @@
 use crate::animation::set_world_to_black;
+use crate::menu::ParallaxSprite;
 use crate::music::{MusicEvent, MusicKind};
 use crate::pixel_perfect::PIXEL_PERFECT_LAYER;
 use crate::time_state::{handle_morning, start_in_night, TimeState};
@@ -45,7 +46,9 @@ impl Plugin for CharacterPlugin {
             .add_systems(OnEnter(TimeState::Night), choose_new_character)
             .add_systems(
                 Update,
-                (character_ui, handle_slide_intro).in_set(CharacterSet),
+                (character_ui, handle_slide_intro, manage_parallax)
+                    .chain()
+                    .in_set(CharacterSet),
             )
             .register_type::<CharacterUi>();
     }
@@ -147,6 +150,23 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
 #[derive(Component)]
 struct SlidingIntro;
 
+fn manage_parallax(
+    add_to: Query<
+        Entity,
+        (
+            With<SelectedCharacterSprite>,
+            Without<ParallaxSprite>,
+            Without<SlidingIntro>,
+        ),
+    >,
+    mut commands: Commands,
+) {
+    for character in add_to.iter() {
+        info!("Adding parallax to {character}");
+        commands.entity(character).insert(ParallaxSprite(0.005));
+    }
+}
+
 pub fn choose_new_character(
     mut commands: Commands,
     server: Res<AssetServer>,
@@ -167,7 +187,10 @@ pub fn choose_new_character(
 
     if *time_state.get() != TimeState::Night || selected_character.is_empty() {
         for (entity, transform) in prev_sel_sprite.iter() {
-            commands.entity(entity).remove::<SelectedCharacterSprite>();
+            commands
+                .entity(entity)
+                .remove::<SelectedCharacterSprite>()
+                .remove::<ParallaxSprite>();
 
             let slide = Tween::new(
                 EaseFunction::QuadraticInOut,
@@ -233,7 +256,10 @@ pub fn choose_new_character(
                     }
 
                     for (entity, transform) in prev_sel_sprite.iter() {
-                        commands.entity(entity).remove::<SelectedCharacterSprite>();
+                        commands
+                            .entity(entity)
+                            .remove::<SelectedCharacterSprite>()
+                            .remove::<ParallaxSprite>();
 
                         let slide = Tween::new(
                             EaseFunction::QuadraticInOut,

@@ -1,5 +1,6 @@
 use super::UiNode;
 use crate::{
+    menu::ParallaxSprite,
     pixel_perfect::{HIGH_RES_LAYER, PIXEL_PERFECT_LAYER},
     state::KingdomState,
     time_state::TimeState,
@@ -177,6 +178,7 @@ fn setup_background(
             ..Default::default()
         },
         BackgroundTown,
+        ParallaxSprite(0.001),
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -188,6 +190,7 @@ fn setup_background(
             ..Default::default()
         },
         BackgroundTownNight,
+        ParallaxSprite(0.001),
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -205,6 +208,7 @@ fn setup_background(
             index: 0,
         },
         Crowd::Three(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        ParallaxSprite(0.002),
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -219,6 +223,7 @@ fn setup_background(
             index: 0,
         },
         Crowd::Two(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        ParallaxSprite(0.003),
         PIXEL_PERFECT_LAYER,
     ));
 
@@ -233,6 +238,7 @@ fn setup_background(
             index: 0,
         },
         Crowd::One(Timer::from_seconds(0.3, TimerMode::Repeating)),
+        ParallaxSprite(0.004),
         UiNode,
         PIXEL_PERFECT_LAYER,
     ));
