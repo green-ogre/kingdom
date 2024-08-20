@@ -1,12 +1,12 @@
+use super::KingdomState;
 use crate::{
     character::{Character, Characters},
+    music::play_special_stinger,
     ui::decision::DecisionType,
     GameState,
 };
 use bevy::{ecs::system::SystemId, prelude::*};
 use foldhash::HashMap;
-
-use super::KingdomState;
 
 pub struct HandlerPlugin;
 
@@ -184,12 +184,26 @@ fn present_hand(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
     }
 }
 
-fn conditional_succ(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn conditional_succ(
+    state: Res<KingdomState>,
+    mut dream: ResMut<DreamState>,
+    mut commands: Commands,
+    server: Res<AssetServer>,
+) {
+    if matches!(state.last_decision, Some(DecisionType::Yes)) {
+        play_special_stinger(&mut commands, &server);
+    }
     warn!("Do succing");
 }
 
-fn succ(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
+fn succ(
+    state: Res<KingdomState>,
+    mut dream: ResMut<DreamState>,
+    mut commands: Commands,
+    server: Res<AssetServer>,
+) {
     dream.this_gift = true;
+    play_special_stinger(&mut commands, &server);
     warn!("Do succing");
 }
 
@@ -212,7 +226,6 @@ fn entertain_handler(state: Res<KingdomState>, mut dream: ResMut<DreamState>) {
         }
         Some(DecisionType::No) => {
             dream.only = true;
-
         }
         _ => {}
     }

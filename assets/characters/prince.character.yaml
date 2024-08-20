@@ -23,7 +23,7 @@ requests:
         heart_size: 1
         happiness: 10
         wealth: -10
-        text: Build community house
+        text: Build home
       no:
         heart_size: -1
   - - text: |

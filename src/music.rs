@@ -28,6 +28,17 @@ pub fn play_final_stinger(commands: &mut Commands, assets: &AssetServer) {
     });
 }
 
+pub fn play_special_stinger(commands: &mut Commands, assets: &AssetServer) {
+    commands.spawn(AudioBundle {
+        source: assets.load("audio/special-stinger.wav"),
+        settings: PlaybackSettings {
+            mode: bevy::audio::PlaybackMode::Despawn,
+            ..Default::default()
+        }
+        .with_volume(bevy::audio::Volume::new(MUSIC_VOL as f32 * 0.75)),
+    });
+}
+
 #[derive(Resource, Reflect, Default)]
 struct Music {
     playing: bool,

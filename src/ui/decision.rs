@@ -165,7 +165,8 @@ fn selection_ui(
             .with_style(Style {
                 position_type: PositionType::Absolute,
                 top: Val::Percent(17.),
-                left: Val::Percent(76.),
+                left: Val::Percent(71.),
+                // right: Val::Percent(67.2),
                 ..Default::default()
             })
             .with_text_justify(JustifyText::Center),
@@ -188,7 +189,7 @@ fn selection_ui(
             if did_click {
                 commands.spawn(AudioBundle {
                     source: server.load(click_sfx),
-                    settings: PlaybackSettings::default()
+                    settings: PlaybackSettings::DESPAWN
                         .with_volume(Volume::new(0.5))
                         .with_speed(1.8),
                 });
@@ -209,7 +210,7 @@ fn selection_ui(
             if did_click {
                 commands.spawn(AudioBundle {
                     source: server.load(click_sfx),
-                    settings: PlaybackSettings::default()
+                    settings: PlaybackSettings::DESPAWN
                         .with_volume(Volume::new(0.5))
                         .with_speed(1.8),
                 });
