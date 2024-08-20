@@ -1,29 +1,51 @@
-use crate::animation::{set_world_to_black, DelayedSpawn};
+use crate::animation::{
+    set_world_to_black, AudioVolumeLens, DelayedSpawn, FadeFromBlack, FadeToBlack,
+    FadeToBlackSprite,
+};
+use crate::menu::{ParallaxSprite, FONT_PATH};
 use crate::music::MusicEvent;
+use crate::pixel_perfect::HIGH_RES_LAYER;
 use crate::state::{KingdomState, MAX_HEART_SIZE, MIN_PROSPERITY};
-use crate::ui::{HeartUi, StatBar, UiNode, HEART_SCALE};
+use crate::type_writer::TypeWriter;
+use crate::ui::background::{
+    BackgroundParticles, BackgroundTownNight, Crowd, CrowdAudio, CROWD_VOLUME,
+};
+use crate::ui::{hex_to_vec4, HeartUi, StatBar, UiNode, HEART_SCALE};
 use crate::GameState;
 use bevy::audio::PlaybackMode;
 use bevy::audio::Volume;
+use bevy::input::keyboard::KeyboardInput;
+use bevy::input::ButtonState;
 use bevy::prelude::*;
+use bevy::render::view::RenderLayers;
+use bevy::window::PrimaryWindow;
+use bevy_hanabi::prelude::*;
+use bevy_hanabi::EffectAsset;
 use bevy_tweening::*;
 use lens::TransformScaleLens;
 use sickle_ui::prelude::*;
+use sickle_ui::ui_commands::UpdateStatesExt;
 use std::time::Duration;
 
 pub struct EndPlugin;
 
 impl Plugin for EndPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Win), (set_world_to_black, enter_win))
+        app.add_systems(OnEnter(GameState::Win), enter_win)
             .add_systems(
                 OnEnter(GameState::Loose),
                 (
-                    set_world_to_black,
                     enter_death.run_if(should_die),
                     enter_not_enough_prosperity.run_if(should_not_die),
                 )
                     .chain(),
+            )
+            .add_systems(
+                Update,
+                (
+                    handle_revolution.run_if(in_state(GameState::Revolution)),
+                    handle_win.run_if(in_state(GameState::WinScreen)),
+                ),
             );
     }
 }
@@ -46,12 +68,294 @@ fn should_die(state: Res<KingdomState>) -> bool {
     }
 }
 
-fn enter_win() {
-    info!("you win");
+fn enter_win(
+    mut commands: Commands,
+    stat_ui: Query<Entity, With<StatBar>>,
+    mut music: EventWriter<MusicEvent>,
+    crowd_audio: Query<Entity, With<CrowdAudio>>,
+) {
+    info!("you won");
+
+    if let Ok(crowd_audio) = crowd_audio.get_single() {
+        commands
+            .entity(crowd_audio)
+            .insert(Animator::new(Tween::new(
+                EaseMethod::Linear,
+                Duration::from_secs_f32(5.),
+                AudioVolumeLens {
+                    start: CROWD_VOLUME,
+                    end: 0.0,
+                },
+            )));
+    }
+
+    let id = commands.register_one_shot_system(show_win);
+    commands.insert_resource(FadeToBlack::new(0.5, 10, 0., id));
+
+    music.send(MusicEvent::FadeOutSecs(5.));
+
+    for entity in stat_ui.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
-fn enter_not_enough_prosperity() {
+fn enter_not_enough_prosperity(
+    mut commands: Commands,
+    stat_ui: Query<Entity, With<StatBar>>,
+    mut music: EventWriter<MusicEvent>,
+    crowd_audio: Query<Entity, With<CrowdAudio>>,
+) {
     info!("you did not have enough prosperity");
+
+    if let Ok(crowd_audio) = crowd_audio.get_single() {
+        commands
+            .entity(crowd_audio)
+            .insert(Animator::new(Tween::new(
+                EaseMethod::Linear,
+                Duration::from_secs_f32(5.),
+                AudioVolumeLens {
+                    start: CROWD_VOLUME,
+                    end: 0.0,
+                },
+            )));
+    }
+
+    let id = commands.register_one_shot_system(show_revolution);
+    commands.insert_resource(FadeToBlack::new(0.5, 10, 0., id));
+
+    music.send(MusicEvent::FadeOutSecs(5.));
+
+    for entity in stat_ui.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+pub fn setup_background_particles_for_revolution(
+    mut commands: Commands,
+    mut effects: ResMut<Assets<EffectAsset>>,
+    prev_particles: Query<Entity, With<BackgroundParticles>>,
+) {
+    let mut module = Module::default();
+
+    let mut gradient = Gradient::new();
+    let color = hex_to_vec4(0xFF0000);
+    gradient.add_key(0.0, color);
+    gradient.add_key(1.0, color.with_w(0.));
+    let init_pos = SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO.with_y(-100.)),
+        radius: module.lit(120.),
+        dimension: ShapeDimension::Surface,
+    };
+    let init_vel = SetAttributeModifier {
+        attribute: Attribute::VELOCITY,
+        value: module.lit(Vec3::ZERO.with_x(5.).with_y(80.)),
+    };
+    let init_size = SetSizeModifier {
+        size: CpuValue::Uniform((Vec2::splat(1.), Vec2::splat(2.))),
+    };
+    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, module.lit(4.));
+    let effect = EffectAsset::new(vec![500], Spawner::rate(100.0.into()), module)
+        .init(init_pos)
+        .init(init_vel)
+        .init(init_lifetime)
+        .render(init_size)
+        .render(ColorOverLifetimeModifier { gradient });
+    let effect_asset = effects.add(effect);
+
+    info!("spawning background particles for dream");
+    commands.spawn((
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(-20.)),
+            ..Default::default()
+        },
+        BackgroundParticles,
+    ));
+
+    for entity in prev_particles.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
+fn show_revolution(
+    mut commands: Commands,
+    server: Res<AssetServer>,
+    mut background: Query<&mut Visibility, With<BackgroundTownNight>>,
+    mut crowds: Query<&mut Transform, With<Crowd>>,
+    ui: Query<Entity, With<UiNode>>,
+    mut type_writer: ResMut<TypeWriter>,
+) {
+    info!("revolution!");
+
+    let id = commands.register_one_shot_system(setup_background_particles_for_revolution);
+    commands.run_system(id);
+
+    for entity in ui.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    for mut crowd in crowds.iter_mut() {
+        // crowd.translation.y -= 70.;
+        crowd.translation.y -= 700.;
+    }
+
+    *background.single_mut() = Visibility::Visible;
+
+    let id = commands.register_one_shot_system(|mut commands: Commands| {
+        commands.next_state(GameState::Revolution);
+    });
+    commands.insert_resource(FadeFromBlack::new(0.5, 10, 0., id));
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/fire-sound-efftect-21991.mp3"),
+            settings: PlaybackSettings::LOOP.with_volume(Volume::new(0.5)),
+        },
+        Revolution,
+        Animator::new(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(5.),
+            AudioVolumeLens {
+                start: 0.,
+                end: 0.4,
+            },
+        )),
+    ));
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/angry-mob-loop-6847.mp3"),
+            settings: PlaybackSettings::LOOP.with_volume(Volume::new(0.3)),
+        },
+        Revolution,
+        Animator::new(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(5.),
+            AudioVolumeLens {
+                start: 0.,
+                end: 0.2,
+            },
+        )),
+    ));
+
+    commands.spawn((
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                font: server.load(FONT_PATH),
+                font_size: 50.,
+                ..default()
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            left: Val::Percent(10.),
+            // right: Val::Percent(70.),
+            top: Val::Percent(80.),
+            // max_width: Val::Px(1000.),
+            ..Default::default()
+        })
+        .with_text_justify(JustifyText::Left),
+        RevolutionText,
+        Revolution,
+    ));
+
+    commands.insert_resource(EnterMainMenuTimer(
+        Timer::new(Duration::from_secs_f32(10.), TimerMode::Repeating),
+        0,
+        false,
+    ));
+
+    let sfx = server.load("audio/cursor_style_2_rev.wav");
+    *type_writer = TypeWriter::new(
+        "Pity... Your kingdom, sullied by your own wretched calamity\nnow revolts against you."
+            .into(),
+        0.035,
+        sfx,
+    );
+}
+
+#[derive(Resource)]
+struct EnterMainMenuTimer(Timer, u32, bool);
+
+#[derive(Component)]
+struct Revolution;
+
+#[derive(Component)]
+struct RevolutionText;
+
+fn handle_revolution(
+    mut commands: Commands,
+    mut intro_text: Query<&mut Text, With<RevolutionText>>,
+    mut type_writer: ResMut<TypeWriter>,
+    mut reader: EventReader<KeyboardInput>,
+    time: Res<Time>,
+    mut timer: ResMut<EnterMainMenuTimer>,
+    enitites: Query<Entity>,
+    server: Res<AssetServer>,
+) {
+    let mut enter_next_state = || {
+        commands.next_state(GameState::MainMenu);
+        for entity in enitites.iter() {
+            commands.entity(entity).despawn();
+        }
+    };
+
+    if !timer.2 {
+        reader.clear();
+        timer.2 = true;
+    }
+
+    for input in reader.read() {
+        if matches!(
+            input,
+            KeyboardInput {
+                state,
+                ..
+            } if *state
+                == ButtonState::Pressed
+        ) {
+            if !type_writer.is_finished {
+                type_writer.finish();
+                continue;
+            }
+
+            timer.1 += 1;
+            timer.0.reset();
+
+            if timer.1 >= 2 {
+                enter_next_state();
+                return;
+            }
+
+            if timer.1 >= 1 {
+                let sfx = server.load("audio/cursor_style_2_rev.wav");
+                *type_writer =
+                    TypeWriter::new("You were no better than the last...".into(), 0.05, sfx);
+            }
+        }
+    }
+
+    timer.0.tick(time.delta());
+
+    if timer.0.finished() {
+        timer.1 += 1;
+
+        if timer.1 >= 2 {
+            enter_next_state();
+            return;
+        }
+
+        if timer.1 >= 1 {
+            let sfx = server.load("audio/cursor_style_2_rev.wav");
+            *type_writer = TypeWriter::new("You were no better than the last...".into(), 0.05, sfx);
+        }
+    }
+
+    type_writer.increment(&time);
+    type_writer.try_play_sound(&mut commands);
+
+    let mut text = intro_text.single_mut();
+    text.sections[0].value = type_writer.slice_with_line_wrap().into();
 }
 
 #[derive(Component)]
@@ -69,7 +373,12 @@ pub fn enter_death(
     mut music: EventWriter<MusicEvent>,
     server: Res<AssetServer>,
     ui: Query<Entity, (With<UiNode>, Without<HeartUi>)>,
+    ui_images: Query<&mut UiImage, With<UiNode>>,
+    ui_text: Query<&mut Text, With<UiNode>>,
+    sprite: Query<&mut Sprite, With<FadeToBlackSprite>>,
 ) {
+    set_world_to_black(ui_images, ui_text, sprite);
+
     music.send(MusicEvent::Pause);
 
     for entity in ui.iter() {
@@ -218,24 +527,276 @@ fn spawn_loose_ui(
     })
 }
 
-fn spawn_win_ui(
+fn show_win(
     mut commands: Commands,
     mut heart_sprite: Query<&mut Visibility, (With<HeartUi>, With<Sprite>)>,
     audio: Query<Entity, With<HeartAudio>>,
+    stat_ui: Query<Entity, With<StatBar>>,
+    mut music: EventWriter<MusicEvent>,
+    crowd_audio: Query<Entity, With<CrowdAudio>>,
+    ui: Query<Entity, With<UiNode>>,
+    crowds: Query<Entity, With<Crowd>>,
 ) {
-    commands.entity(audio.single()).despawn();
-    *heart_sprite.single_mut() = Visibility::Hidden;
-    commands
-        .ui_builder(UiRoot)
-        .column(|column| {
-            column.spawn((TextBundle::from_section(
-                "You win!",
-                TextStyle {
-                    font_size: 30.0,
-                    ..default()
+    for entity in ui.iter() {
+        commands.entity(entity).despawn();
+    }
+
+    for entity in crowds.iter() {
+        commands.entity(entity).despawn()
+    }
+
+    // commands.entity(audio.single()).despawn();
+    // *heart_sprite.single_mut() = Visibility::Hidden;
+    // commands
+    //     .ui_builder(UiRoot)
+    //     .column(|column| {
+    //         column.spawn((TextBundle::from_section(
+    //             "You win!",
+    //             TextStyle {
+    //                 font_size: 30.0,
+    //                 ..default()
+    //             },
+    //         ),));
+    //     })
+    //     .style()
+    //     .justify_content(JustifyContent::Start);
+
+    info!("win!");
+
+    let id = commands.register_one_shot_system(setup_win);
+    commands.run_system(id);
+
+    // for entity in ui.iter() {
+    //     commands.entity(entity).despawn();
+    // }
+
+    let id = commands.register_one_shot_system(|mut commands: Commands| {
+        commands.next_state(GameState::WinScreen);
+    });
+    commands.insert_resource(FadeFromBlack::new(0.5, 10, 0., id));
+
+    // commands.spawn((
+    //     TextBundle::from_section(
+    //         "",
+    //         TextStyle {
+    //             font: server.load(FONT_PATH),
+    //             font_size: 50.,
+    //             ..default()
+    //         },
+    //     )
+    //     .with_style(Style {
+    //         position_type: PositionType::Absolute,
+    //         left: Val::Percent(10.),
+    //         // right: Val::Percent(70.),
+    //         top: Val::Percent(80.),
+    //         // max_width: Val::Px(1000.),
+    //         ..Default::default()
+    //     })
+    //     .with_text_justify(JustifyText::Left),
+    //     RevolutionText,
+    //     Revolution,
+    // ));
+}
+
+#[derive(Component)]
+struct Win;
+
+fn setup_win(mut commands: Commands, server: Res<AssetServer>, mut spawner: ResMut<DelayedSpawn>) {
+    let id = commands.register_one_shot_system(setup_win_effect);
+    commands.run_system(id);
+
+    commands.spawn((
+        AudioBundle {
+            source: server.load("audio/birds-19624.mp3"),
+            settings: PlaybackSettings {
+                mode: PlaybackMode::Loop,
+                volume: Volume::new(0.5),
+                ..Default::default()
+            },
+        },
+        Animator::new(Tween::new(
+            EaseMethod::Linear,
+            Duration::from_secs_f32(5.),
+            AudioVolumeLens {
+                start: 0.5,
+                end: 0.0,
+            },
+        )),
+        Win,
+    ));
+
+    let source = server.load("audio/game-complete.wav");
+    spawner.spawn_after(5., move |commands| {
+        commands.spawn((
+            AudioBundle {
+                source,
+                settings: PlaybackSettings {
+                    mode: PlaybackMode::Despawn,
+                    volume: Volume::new(0.5),
+                    ..Default::default()
                 },
-            ),));
-        })
-        .style()
-        .justify_content(JustifyContent::Start);
+            },
+            Win,
+        ));
+    });
+
+    // commands.spawn((
+    //     TextBundle::from_section(
+    //         "",
+    //         TextStyle {
+    //             font: server.load(FONT_PATH),
+    //             font_size: 49.,
+    //             ..default()
+    //         },
+    //     )
+    //     .with_text_justify(JustifyText::Left)
+    //     .with_style(Style {
+    //         position_type: PositionType::Absolute,
+    //         left: Val::Px(600.),
+    //         top: Val::Px(200.),
+    //         // max_width: Val::Px(1000.),
+    //         ..Default::default()
+    //     }),
+    //     // IntroText,
+    //     // Intro,
+    // ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("Nature Landscapes Free Pixel Art/nature_4/1.png"),
+            transform: Transform::from_scale(Vec3::splat(1.))
+                .with_translation(Vec3::default().with_z(-22.)),
+            ..Default::default()
+        },
+        // HIGH_RES_LAYER,
+        Win,
+    ));
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("Nature Landscapes Free Pixel Art/nature_4/2.png"),
+            transform: Transform::from_scale(Vec3::splat(1.))
+                .with_translation(Vec3::default().with_z(-21.)),
+            ..Default::default()
+        },
+        ParallaxSprite(0.005),
+        // HIGH_RES_LAYER,
+        Win,
+    ));
+    commands.spawn((
+        SpriteBundle {
+            texture: server.load("Nature Landscapes Free Pixel Art/nature_4/3.png"),
+            transform: Transform::from_scale(Vec3::splat(1.))
+                .with_translation(Vec3::default().with_z(-20.)),
+            ..Default::default()
+        },
+        ParallaxSprite(0.001),
+        // HIGH_RES_LAYER,
+        Win,
+    ));
+}
+
+fn setup_win_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
+    // Define a color gradient from red to transparent black
+    let mut gradient = Gradient::new();
+    gradient.add_key(0.0, Vec4::new(0., 0.8, 0.2, 1.));
+    gradient.add_key(1.0, Vec4::splat(0.));
+
+    // Create a new expression module
+    let mut module = Module::default();
+
+    // On spawn, randomly initialize the position of the particle
+    // to be over the surface of a sphere of radius 2 units.
+    let init_pos = SetPositionSphereModifier {
+        center: module.lit(Vec3::ZERO.with_z(200.)),
+        radius: module.lit(800.),
+        dimension: ShapeDimension::Surface,
+    };
+
+    // Also initialize a radial initial velocity to 6 units/sec
+    // away from the (same) sphere center.
+    let init_vel = SetVelocitySphereModifier {
+        center: module.lit(Vec3::new(-200., -200., 0.)),
+        speed: module.lit(20.),
+    };
+
+    let init_size = SetSizeModifier {
+        size: CpuValue::Uniform((Vec2::splat(4.), Vec2::splat(16.))),
+    };
+
+    // Initialize the total lifetime of the particle, that is
+    // the time for which it's simulated and rendered. This modifier
+    // is almost always required, otherwise the particles won't show.
+    let lifetime = module.lit(10.); // literal value "10.0"
+    let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, lifetime);
+
+    // Every frame, add a gravity-like acceleration downward
+    let accel = module.lit(Vec3::new(0., 0., 0.));
+    let update_accel = AccelModifier::new(accel);
+
+    // Create the effect asset
+    let effect = EffectAsset::new(
+        // Maximum number of particles alive at a time
+        vec![100],
+        // Spawn at a rate of 5 particles per second
+        Spawner::rate(5.0.into()),
+        // Move the expression module into the asset
+        module,
+    )
+    .with_name("MyEffect")
+    .init(init_pos)
+    .init(init_vel)
+    .init(init_lifetime)
+    .update(update_accel)
+    .render(init_size)
+    // Render the particles with a color gradient over their
+    // lifetime. This maps the gradient key 0 to the particle spawn
+    // time, and the gradient key 1 to the particle death (10s).
+    .render(ColorOverLifetimeModifier { gradient });
+
+    // Insert into the asset system
+    let effect_asset = effects.add(effect);
+
+    commands.spawn((
+        ParticleEffectBundle {
+            effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(100.)),
+            transform: Transform::from_translation(Vec3::default().with_z(300.))
+                .with_scale(Vec3::splat(1.)),
+            ..Default::default()
+        },
+        Win,
+    ));
+}
+
+fn handle_win(
+    mut commands: Commands,
+    mut type_writer: ResMut<TypeWriter>,
+    mut reader: EventReader<KeyboardInput>,
+    time: Res<Time>,
+    enitites: Query<Entity, With<Win>>,
+    server: Res<AssetServer>,
+) {
+    reader.clear();
+
+    for input in reader.read() {
+        if matches!(
+            input,
+            KeyboardInput {
+                state,
+                ..
+            } if *state
+                == ButtonState::Pressed
+        ) {
+            if !type_writer.is_finished {
+                type_writer.finish();
+                continue;
+            }
+
+            commands.next_state(GameState::Main);
+            for entity in enitites.iter() {
+                commands.entity(entity).despawn();
+            }
+
+            return;
+        }
+    }
 }

@@ -1,5 +1,6 @@
 use crate::{
     character::{Character, Characters, Request},
+    time_state::TimeState,
     ui::decision::{Decision, DecisionType},
     CharacterSet, GameState,
 };
@@ -174,10 +175,14 @@ fn state_ui(state: Res<KingdomState>, mut state_ui: Query<&mut Text, With<Kingdo
     }
 }
 
-fn check_end_conditions(state: Res<KingdomState>, mut commands: Commands) {
+fn check_end_conditions(
+    state: Res<KingdomState>,
+    mut commands: Commands,
+    time: Res<State<TimeState>>,
+) {
     if state.heart_size <= 0. || state.heart_size >= MAX_HEART_SIZE {
         commands.next_state(GameState::Loose);
-    } else if state.day == 3 {
+    } else if state.day == 3 && *time.get() == TimeState::Evening {
         info!("day 3 end condition check");
         if state.prosperity() >= MIN_PROSPERITY {
             commands.next_state(GameState::Win);

@@ -72,9 +72,11 @@ fn main() {
 enum GameState {
     #[default]
     AssetLoading,
+    WinScreen,
     Main,
     MainMenu,
     Loose,
+    Revolution,
     Win,
 }
 

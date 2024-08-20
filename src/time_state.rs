@@ -6,6 +6,7 @@ use crate::ui::background::{
     setup_background_particles, setup_background_particles_for_dream, BackgroundTownNight,
     CricketAudio, Crowd, CrowdAudio, CRICKET_VOLUME, CROWD_VOLUME,
 };
+use crate::GameState;
 use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy_tweening::*;
@@ -18,7 +19,10 @@ impl Plugin for TimeStatePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<TimeState>()
             .add_systems(Startup, startup)
-            .add_systems(OnEnter(TimeState::Evening), enter_night.chain())
+            .add_systems(
+                OnEnter(TimeState::Evening),
+                enter_night.run_if(in_state(GameState::Main)),
+            )
             .add_systems(OnEnter(TimeState::Morning), (increment_day, enter_morning))
             .insert_resource(DayNumberUi::default());
     }

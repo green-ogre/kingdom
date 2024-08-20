@@ -68,8 +68,14 @@ fn entry_point(
     {
         // remove me
         // state.day = 1;
-        commands.next_state(TimeState::Day);
-        event_writer.send(MusicEvent::Play(MusicKind::Day));
+        // commands.next_state(TimeState::Day);
+        // event_writer.send(MusicEvent::Play(MusicKind::Day));
+    }
+
+    {
+        // state.day = 3;
+        // commands.next_state(GameState::);
+        commands.next_state(GameState::Win);
     }
 
     // NORMAL STARTUP

@@ -1,6 +1,6 @@
 use crate::{
     pixel_perfect::HIGH_RES_LAYER,
-    type_writer::TypeWriter,
+    type_writer::{self, TypeWriter},
     ui::{Cursor, InsightToolTip, UiNode},
     GameState,
 };
@@ -33,7 +33,7 @@ impl Plugin for MainMenuPlugin {
 }
 
 #[derive(Component)]
-struct ParallaxSprite(f32);
+pub struct ParallaxSprite(pub f32);
 
 pub fn setup_cursor(
     mut commands: Commands,
@@ -110,7 +110,7 @@ pub fn setup_cursor(
 }
 
 #[derive(Resource)]
-struct EnterMorningTimer(Timer, u32);
+struct EnterMorningTimer(Timer, u32, bool);
 
 #[derive(Component)]
 struct Intro;
@@ -119,6 +119,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
     commands.insert_resource(EnterMorningTimer(
         Timer::from_seconds(5., TimerMode::Repeating),
         0,
+        false,
     ));
 
     commands.spawn((
@@ -312,12 +313,10 @@ fn update_text(
     enitites: Query<Entity, With<Intro>>,
     server: Res<AssetServer>,
 ) {
-    let mut enter_next_state = || {
-        commands.next_state(GameState::Main);
-        for entity in enitites.iter() {
-            commands.entity(entity).despawn();
-        }
-    };
+    if !timer.2 {
+        reader.clear();
+        timer.2 = true;
+    }
 
     for input in reader.read() {
         if matches!(
@@ -328,8 +327,27 @@ fn update_text(
             } if *state
                 == ButtonState::Pressed
         ) {
-            enter_next_state();
-            return;
+            if !type_writer.is_finished {
+                type_writer.finish();
+                continue;
+            }
+
+            timer.1 += 1;
+
+            if timer.1 == 2 {
+                let sfx = server.load("audio/cursor_style_2_rev.wav");
+                let line = "Closely must You watch this beating sieve;\nToo much, too little, and Your heart will give.";
+                *type_writer = TypeWriter::new(line.into(), 0.035, sfx);
+                timer.0.set_duration(Duration::from_secs_f32(7.));
+            }
+
+            if timer.1 == 3 {
+                commands.next_state(GameState::Main);
+                for entity in enitites.iter() {
+                    commands.entity(entity).despawn();
+                }
+                return;
+            }
         }
     }
 
@@ -346,7 +364,10 @@ fn update_text(
         }
 
         if timer.1 == 3 {
-            enter_next_state();
+            commands.next_state(GameState::Main);
+            for entity in enitites.iter() {
+                commands.entity(entity).despawn();
+            }
             return;
         }
     }
