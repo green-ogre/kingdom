@@ -16,6 +16,7 @@ impl Plugin for HandlerPlugin {
             .insert_resource(NunState::default())
             .insert_resource(PrinceState::default())
             .insert_resource(DreamState::default())
+            .insert_resource(DuchyState::default())
             .add_systems(
                 OnEnter(GameState::Main),
                 (ResponseHandlers::insert, Filters::insert),

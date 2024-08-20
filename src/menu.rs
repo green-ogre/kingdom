@@ -160,7 +160,7 @@ fn setup(mut commands: Commands, server: Res<AssetServer>, mut type_writer: ResM
     *type_writer = TypeWriter::new(
         "Your heart, dear King, it weighs the will of one\nWho seeks of you a choice, a thing undone. "
             .into(),
-        0.045,
+        0.05,
         sfx,
     );
 
@@ -360,7 +360,7 @@ fn update_text(
         if timer.1 == 3 {
             let sfx = server.load("audio/cursor_style_2_rev.wav");
             let line = "Closely must You watch this beating sieve;\nToo much, too little, and Your heart will give.";
-            *type_writer = TypeWriter::new(line.into(), 0.045, sfx);
+            *type_writer = TypeWriter::new(line.into(), 0.05, sfx);
             // timer.0.set_duration(Duration::from_secs_f32(2.));
         }
 

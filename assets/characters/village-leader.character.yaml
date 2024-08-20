@@ -13,8 +13,8 @@ requests:
   - - text: |
         My Lord King, we have made a most grave discovery; a witch lives among us! So that we may rest easy, we would have her executed upon You Majesty's royal scaffolds.
       yes:
-        heart_size: 1
+        heart_size: -1
         happiness: 5
         last_word: Your humble servant thanks you dearly.
       no:
-        heart_size: -1
+        heart_size: 1

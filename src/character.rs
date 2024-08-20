@@ -157,6 +157,9 @@ fn load_characters(mut commands: Commands, character_assets: Res<CharacterAssets
 #[derive(Component)]
 struct SlidingIntro;
 
+#[derive(Component)]
+pub struct Head;
+
 fn manage_parallax(
     add_to: Query<
         Entity,
@@ -164,6 +167,7 @@ fn manage_parallax(
             With<SelectedCharacterSprite>,
             Without<ParallaxSprite>,
             Without<SlidingIntro>,
+            Without<Head>,
         ),
     >,
     mut commands: Commands,
@@ -180,9 +184,9 @@ pub fn choose_new_character(
     mut characters: ResMut<Characters>,
     mut character_assets: ResMut<Assets<Character>>,
     mut type_writer: ResMut<TypeWriter>,
-    prev_sel_sprite: Query<(Entity, &Transform), With<SelectedCharacterSprite>>,
+    prev_sel_sprite: Query<(Entity, &Transform, &CharacterSprite), With<SelectedCharacterSprite>>,
     state: Res<KingdomState>,
-    sprites: Query<&Transform, With<CharacterSprite>>,
+    sprites: Query<(&Transform, &CharacterSprite)>,
     mut selected_character: Query<(Entity, &mut SelectedCharacter)>,
     time_state: Res<State<TimeState>>,
     mut next_time_state: ResMut<NextState<TimeState>>,
@@ -193,26 +197,28 @@ pub fn choose_new_character(
     let mut rng = thread_rng();
 
     if *time_state.get() != TimeState::Night || selected_character.is_empty() {
-        for (entity, transform) in prev_sel_sprite.iter() {
+        for (entity, transform, info) in prev_sel_sprite.iter() {
             commands
                 .entity(entity)
                 .remove::<SelectedCharacterSprite>()
                 .remove::<ParallaxSprite>();
 
-            let slide = Tween::new(
-                EaseFunction::QuadraticInOut,
-                Duration::from_secs_f32(1.5),
-                TransformPositionLens {
-                    start: transform.translation,
-                    end: Vec3::default()
-                        .with_x(-300.)
-                        .with_z(transform.translation.z),
-                },
-            );
+            if *info == CharacterSprite::Body {
+                let slide = Tween::new(
+                    EaseFunction::QuadraticInOut,
+                    Duration::from_secs_f32(1.5),
+                    TransformPositionLens {
+                        start: transform.translation,
+                        end: Vec3::default()
+                            .with_x(-300.)
+                            .with_z(transform.translation.z),
+                    },
+                );
 
-            commands.entity(entity).insert(Animator::new(
-                Delay::new(Duration::from_secs_f32(0.5)).then(slide),
-            ));
+                commands.entity(entity).insert(Animator::new(
+                    Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+                ));
+            }
         }
     }
 
@@ -262,26 +268,28 @@ pub fn choose_new_character(
                         commands.entity(entity).despawn()
                     }
 
-                    for (entity, transform) in prev_sel_sprite.iter() {
+                    for (entity, transform, info) in prev_sel_sprite.iter() {
                         commands
                             .entity(entity)
                             .remove::<SelectedCharacterSprite>()
                             .remove::<ParallaxSprite>();
 
-                        let slide = Tween::new(
-                            EaseFunction::QuadraticInOut,
-                            Duration::from_secs_f32(1.5),
-                            TransformPositionLens {
-                                start: transform.translation,
-                                end: Vec3::default()
-                                    .with_x(-300.)
-                                    .with_z(transform.translation.z),
-                            },
-                        );
+                        if *info == CharacterSprite::Body {
+                            let slide = Tween::new(
+                                EaseFunction::QuadraticInOut,
+                                Duration::from_secs_f32(1.5),
+                                TransformPositionLens {
+                                    start: transform.translation,
+                                    end: Vec3::default()
+                                        .with_x(-300.)
+                                        .with_z(transform.translation.z),
+                                },
+                            );
 
-                        commands.entity(entity).insert(Animator::new(
-                            Delay::new(Duration::from_secs_f32(0.5)).then(slide),
-                        ));
+                            commands.entity(entity).insert(Animator::new(
+                                Delay::new(Duration::from_secs_f32(0.5)).then(slide),
+                            ));
+                        }
                     }
 
                     return;
@@ -321,25 +329,31 @@ pub fn choose_new_character(
     if let Some(entities) = character.sprite {
         for entity in entities.iter() {
             if sliding_intro {
-                if let Ok(sprite) = sprites.get(*entity) {
-                    let slide = Tween::new(
-                        EaseFunction::QuadraticInOut,
-                        Duration::from_secs_f32(1.5),
-                        TransformPositionLens {
-                            start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
-                            end: Vec3::ZERO.with_z(sprite.translation.z),
-                        },
-                    );
+                match sprites.get(*entity) {
+                    Ok((sprite, CharacterSprite::Body)) => {
+                        let slide = Tween::new(
+                            EaseFunction::QuadraticInOut,
+                            Duration::from_secs_f32(1.5),
+                            TransformPositionLens {
+                                start: Vec3::default().with_x(300.).with_z(sprite.translation.z),
+                                end: Vec3::ZERO.with_z(sprite.translation.z),
+                            },
+                        );
 
-                    commands.entity(*entity).insert((
-                        SelectedCharacterSprite,
-                        Animator::new(
-                            slide.then(
-                                Delay::new(Duration::from_secs_f32(0.5))
-                                    .with_completed_event(FINISHED_SLIDE),
+                        commands.entity(*entity).insert((
+                            SelectedCharacterSprite,
+                            Animator::new(
+                                slide.then(
+                                    Delay::new(Duration::from_secs_f32(0.5))
+                                        .with_completed_event(FINISHED_SLIDE),
+                                ),
                             ),
-                        ),
-                    ));
+                        ));
+                    }
+                    Ok((_, CharacterSprite::Head)) => {
+                        commands.entity(*entity).insert(SelectedCharacterSprite);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -377,41 +391,45 @@ fn load_character_sprite(
                 let body_texture =
                     server.load(format!("{}_body.png", character.sprite_path.trim()));
 
-                character.sprite = Some([
-                    commands
-                        .spawn((
-                            SpriteBundle {
-                                // visibility: Visibility::Hidden,
-                                transform: Transform::from_translation(
-                                    Vec3::default().with_z(1.).with_x(300.),
-                                ),
-                                texture: head_texture,
-                                ..Default::default()
-                            },
-                            CharacterSprite::Head,
-                            PIXEL_PERFECT_LAYER,
-                        ))
-                        .id(),
-                    commands
-                        .spawn((
-                            SpriteBundle {
-                                // visibility: Visibility::Hidden,
-                                transform: Transform::from_xyz(300., 0., 0.),
-                                texture: body_texture,
-                                ..Default::default()
-                            },
-                            CharacterSprite::Body,
-                            PIXEL_PERFECT_LAYER,
-                        ))
-                        .id(),
-                ]);
+                let head = commands
+                    .spawn((
+                        SpriteBundle {
+                            // visibility: Visibility::Hidden,
+                            transform: Transform::from_translation(
+                                // Vec3::default().with_z(1.).with_x(300.),
+                                Vec3::default().with_z(1.),
+                            ),
+                            texture: head_texture,
+                            ..Default::default()
+                        },
+                        CharacterSprite::Head,
+                        Head,
+                        PIXEL_PERFECT_LAYER,
+                    ))
+                    .id();
+
+                let body = commands
+                    .spawn((
+                        SpriteBundle {
+                            // visibility: Visibility::Hidden,
+                            transform: Transform::from_xyz(300., 0., 0.),
+                            texture: body_texture,
+                            ..Default::default()
+                        },
+                        CharacterSprite::Body,
+                        PIXEL_PERFECT_LAYER,
+                    ))
+                    .add_child(head)
+                    .id();
+
+                character.sprite = Some([head, body]);
             }
             _ => {}
         }
     }
 }
 
-#[derive(Component)]
+#[derive(Component, PartialEq, Eq)]
 pub enum CharacterSprite {
     Head,
     Body,
