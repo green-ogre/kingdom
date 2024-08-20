@@ -35,6 +35,8 @@ fn main() {
                         title: "Concoeur".into(),
                         resolution: WindowResolution::new(1920., 1080.)
                             .with_scale_factor_override(1.0),
+                        mode: bevy::window::WindowMode::BorderlessFullscreen,
+
                         ..Default::default()
                     }),
                     ..Default::default()

@@ -177,7 +177,7 @@ fn reset_cursor_state(
 }
 
 pub fn update_cursor(
-    windows: Query<&Window>,
+    mut windows: Query<&mut Window>,
     mut cursor: Query<(Entity, &mut Style), (With<Cursor>, Without<InsightToolTip>)>,
     mut tool_tip: Query<
         (Entity, &mut Style, &mut Visibility),
@@ -194,7 +194,9 @@ pub fn update_cursor(
     state: Res<KingdomState>,
     mut stat_bars: Query<&mut Visibility, (With<InsightStatBar>, Without<InsightToolTip>)>,
 ) {
-    let window = windows.single();
+    let mut window = windows.single_mut();
+    window.cursor.visible = false;
+
     let Ok((entity, mut style)) = cursor.get_single_mut() else {
         return;
     };
@@ -482,9 +484,9 @@ fn display_state_bars(
 #[derive(Debug, Default, Deserialize, Asset, Component, Reflect, Clone, PartialEq, Eq, Copy)]
 pub enum Mask {
     Happy,
+    #[default]
     Neutral,
     Sad,
-    #[default]
     None,
 }
 

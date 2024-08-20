@@ -281,6 +281,7 @@ fn setup_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>
         // Move the expression module into the asset
         module,
     )
+    .with_simulation_space(SimulationSpace::Local)
     .with_name("MyEffect")
     .init(init_pos)
     .init(init_vel)
@@ -305,6 +306,7 @@ fn setup_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>
         RenderLayers::layer(2),
         MainMenuParticles,
         Intro,
+        ParallaxSprite(0.045),
     ));
 }
 

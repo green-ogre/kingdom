@@ -133,6 +133,14 @@ pub fn spawn_insight(
         HIGH_RES_LAYER,
     ));
 
+    let get_leader = |val: f32| {
+        if val >= 0. {
+            "+"
+        } else {
+            "-"
+        }
+    };
+
     commands
         .ui_builder(UiRoot)
         .column(|column| {
@@ -150,10 +158,15 @@ pub fn spawn_insight(
                 ))
                 .style()
                 .justify_content(JustifyContent::Start);
+
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!(" -{}", request.no.heart_size.abs() as u32),
+                        &format!(
+                            " {}{}",
+                            get_leader(request.no.heart_size),
+                            request.no.heart_size.abs() as u32
+                        ),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -178,7 +191,11 @@ pub fn spawn_insight(
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!(" -{}", request.no.happiness.abs() as u32),
+                        &format!(
+                            " {}{}",
+                            get_leader(request.no.happiness),
+                            request.no.happiness.abs() as u32
+                        ),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -203,7 +220,11 @@ pub fn spawn_insight(
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!(" -{}", request.no.wealth.abs() as u32),
+                        &format!(
+                            " {}{}",
+                            get_leader(request.no.wealth),
+                            request.no.wealth.abs() as u32
+                        ),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -227,16 +248,16 @@ pub fn spawn_insight(
                 ))
                 .style()
                 .justify_content(JustifyContent::Start);
+
+                let prosp = KingdomState::calculate_prosperity(
+                    request.no.happiness.abs(),
+                    request.no.wealth.abs(),
+                );
+
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!(
-                            " -{}",
-                            KingdomState::calculate_prosperity(
-                                request.no.happiness.abs(),
-                                request.no.wealth.abs()
-                            )
-                        ),
+                        &format!(" {}{prosp}", get_leader(prosp)),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -258,7 +279,11 @@ pub fn spawn_insight(
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!("+{} ", request.yes.heart_size.abs() as u32),
+                        &format!(
+                            "{}{} ",
+                            get_leader(request.yes.heart_size),
+                            request.yes.heart_size.abs() as u32
+                        ),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -285,7 +310,11 @@ pub fn spawn_insight(
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!("+{} ", request.yes.happiness.abs() as u32),
+                        &format!(
+                            "{}{} ",
+                            get_leader(request.yes.happiness),
+                            request.yes.happiness.abs() as u32
+                        ),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -310,7 +339,11 @@ pub fn spawn_insight(
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!("+{} ", request.yes.wealth.abs() as u32),
+                        &format!(
+                            "{}{} ",
+                            get_leader(request.yes.wealth),
+                            request.yes.wealth.abs() as u32
+                        ),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),
@@ -331,17 +364,16 @@ pub fn spawn_insight(
                 .justify_content(JustifyContent::End);
             });
 
+            let prosp = KingdomState::calculate_prosperity(
+                request.yes.happiness.abs(),
+                request.yes.wealth.abs(),
+            );
+
             column.row(|row| {
                 row.spawn((
                     InsightNode,
                     TextBundle::from_section(
-                        &format!(
-                            "+{} ",
-                            KingdomState::calculate_prosperity(
-                                request.yes.happiness.abs(),
-                                request.yes.wealth.abs()
-                            )
-                        ),
+                        &format!("{}{prosp} ", get_leader(prosp)),
                         TextStyle {
                             font_size: 30.0,
                             font: server.load(FONT_PATH),

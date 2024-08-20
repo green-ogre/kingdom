@@ -130,12 +130,13 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
     mut projections: Query<&mut OrthographicProjection, With<OuterCamera>>,
+    mut ui_scale: ResMut<UiScale>,
 ) {
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        if let Ok(mut projection) = projections.get_single_mut() {
-            projection.scale = 1. / h_scale.min(v_scale);
-        }
+        let mut projection = projections.single_mut();
+        projection.scale = 1. / h_scale.min(v_scale);
+        ui_scale.0 = h_scale.min(v_scale) * (RES_WIDTH as f32 / 1920.);
     }
 }

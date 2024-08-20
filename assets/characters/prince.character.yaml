@@ -6,12 +6,15 @@ requests:
         Deareset Father, would you sanction a spring festival for the people? A time for merrymaking would surely raise their spirits!
       filter: prince_festival
       response_handlers: [prince_festival_handler]
+      mask: Neutral
       yes:
         heart_size: 1
         happiness: 15
         wealth: -10
+        mask: Happy
       no:
         heart_size: -1
+        mask: Sad
     - text: |
         My Lord Father, there yet remain many men who have suffered grievous injury in our wars. Most are cast out from their villages. I would that these men be housed together so that they may help each other and our kingdom.
       response_handlers: [prince_disabled_handler]

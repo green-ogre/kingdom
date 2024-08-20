@@ -70,6 +70,7 @@ pub fn setup_background_particles(
     };
     let init_lifetime = SetAttributeModifier::new(Attribute::LIFETIME, module.lit(10.));
     let effect = EffectAsset::new(vec![100], Spawner::rate(5.0.into()), module)
+        .with_simulation_space(SimulationSpace::Local)
         .init(init_pos)
         .init(init_vel)
         .init(init_lifetime)
@@ -83,6 +84,7 @@ pub fn setup_background_particles(
             effect: ParticleEffect::new(effect_asset).with_z_layer_2d(Some(-20.)),
             ..Default::default()
         },
+        ParallaxSprite(0.0045),
         BackgroundParticles,
     ));
 

@@ -2,6 +2,10 @@ use crate::{
     character::{Character, Characters, Request},
     time_state::TimeState,
     ui::decision::{Decision, DecisionType},
+    ui::{
+        decision::{Decision, DecisionType},
+        ActiveMask, Mask,
+    },
     CharacterSet, GameState,
 };
 use bevy::prelude::*;
@@ -67,6 +71,7 @@ pub struct StateUpdate {
     pub happiness: f32,
     pub can_use_insight: Option<bool>,
     pub last_word: Option<String>,
+    pub mask: Option<Mask>,
 }
 
 impl KingdomState {
@@ -132,6 +137,7 @@ fn update_state(
     system: Res<Characters>,
     response_handlers: Res<handlers::ResponseHandlers>,
     filters: Res<handlers::Filters>,
+    mut active_mask: ResMut<ActiveMask>,
 ) {
     if reader.is_empty() {
         return;
@@ -152,7 +158,11 @@ fn update_state(
             let request = character
                 .request(state.day)
                 .expect("Character presented with valid request");
-            state.apply_request_decision(request, decision.into());
+            let update = state.apply_request_decision(request, decision.into());
+
+            if let Some(mask_update) = update.mask {
+                active_mask.0 = mask_update;
+            }
 
             for handler in request.response_handlers.iter() {
                 match response_handlers.0.get(handler.as_str()) {
