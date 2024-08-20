@@ -1,0 +1,76 @@
+name: ???
+class: GreaterOne
+sprite_path: characters/images/dream_man
+requests:
+  # day one
+  - - text: |
+        Your Majesty summoned me?
+      response_handlers: [dream_summon]
+      mask: Neutral
+      yes:
+      no:
+    - text: |
+        Oh but He did! The kingdom balances on the edge of a knife. And so, I am here.
+      filter: summon_no
+      mask: Happy
+      yes:
+      no:
+      response_handlers: [set_cardiac_dream]
+    # I require assistance
+    - text: |
+        Indeed you do.
+      filter: summon_yes
+      mask: Happy
+      yes:
+      no:
+      response_handlers: [set_cardiac_dream]
+    - text: |
+        Your Majesty's cardiac affliction is rather crude work. How many have carried such a burden, I wonder. No matter, we will use it to our advantage. Please, present Your Grace's hand.
+      yes:
+      mask: Sad
+      no:
+      filter: cardiac_dream
+      response_handlers: [present_hand, conditional_succ]
+    - text: |
+        Your Majesty has no choice in the matter. Forgive me, for it was Your Majesty who summoned me.
+      mask: Neutral
+      yes:
+      no:
+      filter: no_choice
+      response_handlers: [succ]
+    - text: |
+        I have bestowed upon Your Grace a gift of great insight. Its power is vast in the hands of a King, but it will exact a heavy price.
+      mask: Happy
+      yes:
+      no:
+      filter: this_gift
+  # day two
+  - - text: |
+        It seems Your Majesty has maintained a tenuous grasp on kingship.
+      mask: Happy
+      yes:
+      no:
+      response_handlers: [grasp_handler]
+    - text: |
+        Would Your Majesty entertain a suggestion?
+      yes:
+      no:
+      response_handlers: [entertain_handler]
+      filter: entertain_filter
+    - text: |
+        Your kingdom will prosper more easily with wealth than with happiness.
+      mask: Happy
+      yes:
+      no:
+      response_handlers: [prosper_handler]
+      filter: prosper_filter
+    - text: |
+        Very well, then I will say only this; listen well to Your progeny. They harbor great potential.
+      yes:
+      no:
+      filter: only_filter
+    - text: |
+        What's more; listen well to Your progeny. They harbor great potential.
+      yes:
+      no:
+      filter: more_filter

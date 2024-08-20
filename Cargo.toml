@@ -4,9 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.14.1", features = ["dynamic_linking", "wav", "mp3"] }
+bevy = { version = "0.14.1", features = ["wav", "mp3"] }
 rand = "0.8.5"
-bevy-inspector-egui = "0.25.2"
 bevy_asset_loader = "0.21.0"
 bevy_tweening = { version = "0.11.0", features = ["bevy_sprite", "bevy_text"] }
 sickle_ui = "0.2.1"

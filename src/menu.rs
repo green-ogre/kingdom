@@ -22,12 +22,17 @@ impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(GameState::MainMenu),
+            #[cfg(target_arch = "wasm32")]
+            (setup, setup_cursor),
+            #[cfg(not(target_arch = "wasm32"))]
             (setup_effect, setup, setup_cursor),
         )
         .add_systems(Update, parallax_sprites)
         .add_systems(Update, (update_text,).run_if(in_state(GameState::MainMenu)))
-        .add_systems(Update, crate::ui::update_cursor)
-        .add_plugins(HanabiPlugin);
+        .add_systems(Update, crate::ui::update_cursor);
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_plugins(HanabiPlugin);
     }
 }
 
@@ -223,6 +228,11 @@ fn parallax_sprites(
 struct MainMenuParticles;
 
 fn setup_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return;
+    }
+
     commands.spawn((
         Camera2dBundle {
             camera: Camera {

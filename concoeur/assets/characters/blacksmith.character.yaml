@@ -1,0 +1,24 @@
+# This guy can seem gruff at first, but maybe
+# he turns out to be a big help later on.
+name: Blacksmith
+class: Craftsman
+sprite_path: "characters/images/blacksmith"
+requests:
+  - - text: |
+        I need men for my hammers and bellows. None would willingly leave the fields at a time like this. I need you to force them. Even slaves will do. I'm sure you understand the important of my work.
+      response_handlers: [smithy_strikers]
+      yes:
+        heart_size: -1
+        happiness: -10
+        wealth: 5
+      no:
+        heart_size: 1
+        last_word: What a waste.
+  - - text: |
+        I need yet more men. The youth of today lack resolve, especially in the smithy. Make them come.
+      yes:
+        heart_size: -1
+        happiness: -10
+        wealth: 5
+      no:
+        heart_size: 1

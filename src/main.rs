@@ -6,7 +6,6 @@ use bevy::{
 use bevy_asset_loader::loading_state::{
     config::ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_kira_audio::prelude::*;
 use character::{CharacterAssets, CharacterPlugin};
 use menu::MainMenuPlugin;

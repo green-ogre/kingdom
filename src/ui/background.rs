@@ -42,6 +42,11 @@ pub fn setup_background_particles(
     prev_particles: Query<Entity, With<BackgroundParticles>>,
     state: Res<KingdomState>,
 ) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return;
+    }
+
     let mut module = Module::default();
 
     let mut gradient = Gradient::new();
@@ -98,6 +103,11 @@ pub fn setup_background_particles_for_dream(
     mut effects: ResMut<Assets<EffectAsset>>,
     prev_particles: Query<Entity, With<BackgroundParticles>>,
 ) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return;
+    }
+
     let mut module = Module::default();
 
     let mut gradient = Gradient::new();

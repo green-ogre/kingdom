@@ -1,0 +1,22 @@
+name: Duchess of the West
+class: Lord
+sprite_path: "characters/images/west_duchess"
+requests:
+  - - text: |
+        My Lord King, I expire under the strict legal charters imposed upon Your humble subjects. I would ask that You kingdom relax these charters so that I may deal with my serfs as I will.
+      yes:
+        heart_size: -1
+        happiness: -5
+        last_word: Your Majesty's wisdom is a vast as our kingdom.
+      no:
+        heart_size: 1
+        last_word: I would never question Your Lordship.
+  - - text: |
+        My Lord King, please have mercy upon Your most humble servant. Lay a thousand curses upon my Duchy if needs must. Indeed, as a token of our gratitude, we would provide ten of our finest slaves and wring our subjects for You royal coffers, if it please Your Majesty.
+      yes:
+        heart_size: -1
+        wealth: 10
+        happiness: -10
+      no:
+        heart_size: 1
+      filter: didnt_fine_duchy

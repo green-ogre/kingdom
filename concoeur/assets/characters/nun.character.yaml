@@ -1,0 +1,19 @@
+name: Nun
+class: Priest
+sprite_path: "characters/images/nun"
+requests:
+  - - text: |
+        My Liege, I am deeply ashamed of the state of our kingdom. In town and village, countless horrific rituals take place at a time like this. The hollering and cavorting is unsightly. I would ask that Your Majesty decree such pagan rituals an affront to the state, punishable by death.
+      yes:
+        heart_size: -1
+        happiness: -10
+      no:
+        heart_size: 1
+      response_handlers: [nun_paganism]
+  - - text: |
+        My Liege, I fear that our kingdom neglects its scholarly duties. Our academy of the Trivium suffers weak patronage. A royal donation would secure our academy's future for years to come.
+      yes:
+        heart_size: 1
+        wealth: -10
+      no:
+        heart_size: -1

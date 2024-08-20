@@ -137,6 +137,11 @@ pub fn setup_background_particles_for_revolution(
     mut effects: ResMut<Assets<EffectAsset>>,
     prev_particles: Query<Entity, With<BackgroundParticles>>,
 ) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return;
+    }
+
     let mut module = Module::default();
 
     let mut gradient = Gradient::new();
@@ -837,6 +842,11 @@ fn animate_prosperity_display(
 }
 
 fn setup_win_effect(mut commands: Commands, mut effects: ResMut<Assets<EffectAsset>>) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        return;
+    }
+
     // Define a color gradient from red to transparent black
     let mut gradient = Gradient::new();
     gradient.add_key(0.0, Vec4::new(0., 0.8, 0.2, 1.));

@@ -1,0 +1,24 @@
+name: Tax man
+class: Merchant
+sprite_path: "characters/images/tax_collector"
+requests:
+  - - text: |
+        Your Majesty, our last harvest was bountiful beyond all expectation. Shall we raise quotas for this year's harvest?
+      yes:
+        heart_size: -1
+        happiness: -10
+        last_word: Your Majesty is wise in all things.
+      no:
+        heart_size: 1
+        last_word: If it please Your Majesty.
+  - - text: |
+        Your Majesty, we've had difficulty collecting dues from the West Duchy. I suggest that a stiff fine be levied. If we are unable to collect this, too, then perhaps a show of force is appropriate.
+      # So this isn't exactly "good or bad." Maybe we can have morally ambiguous choices from time to time?
+      yes:
+        heart_size: -1
+        wealth: 10
+        last_word: Excellent news.
+      no:
+        heart_size: 1
+        last_word: Yes, Your Majesty.
+      response_handlers: [fine_duchy_handler]

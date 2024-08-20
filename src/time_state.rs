@@ -134,8 +134,11 @@ fn show_night(
     for mut vis in crowds.iter_mut() {
         *vis = Visibility::Hidden;
     }
-    let id = commands.register_one_shot_system(setup_background_particles_for_dream);
-    commands.run_system(id);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let id = commands.register_one_shot_system(setup_background_particles_for_dream);
+        commands.run_system(id);
+    }
     music.send(MusicEvent::FadeInSecs(crate::music::MusicKind::Dream, 3.));
     let system = commands.register_one_shot_system(handle_night);
     commands.insert_resource(FadeFromBlack::new(0.5, 10, 3., system));
@@ -222,8 +225,11 @@ pub fn handle_morning(
     *vis = Visibility::Visible;
     text.sections[0].value = state.day_name().to_string();
 
-    let id = commands.register_one_shot_system(setup_background_particles);
-    commands.run_system(id);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let id = commands.register_one_shot_system(setup_background_particles);
+        commands.run_system(id);
+    }
 
     music.send(MusicEvent::FadeInSecs(MusicKind::Day, 5.));
     let system = commands.register_one_shot_system(enter_day);

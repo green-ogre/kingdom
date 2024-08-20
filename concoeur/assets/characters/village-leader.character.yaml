@@ -1,0 +1,20 @@
+name: Village leader
+class: Peasant
+sprite_path: "characters/images/village_leader"
+requests:
+  - - text: |
+        My Lord King, Your humble servant requests but a single horse. Our village suffered gravely this winter. We lost all our field animals.
+      yes:
+        heart_size: 1
+        happiness: 5
+        wealth: 0
+      no:
+        heart_size: -1
+  - - text: |
+        My Lord King, we have made a most grave discovery; a witch lives among us! So that we may rest easy, we would have her executed upon Your Majesty's royal scaffolds.
+      yes:
+        heart_size: -1
+        happiness: 5
+        last_word: Your humble servant thanks you dearly.
+      no:
+        heart_size: 1

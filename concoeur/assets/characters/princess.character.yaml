@@ -1,0 +1,37 @@
+name: Crown Princess
+class: Royal
+sprite_path: "characters/images/princess"
+requests:
+  - - text: |
+        My King, before us lies an unusual opportunity. I've received word that the Lower Kingdom, which Your Majesty may recall is especially brutal, seeks our alliance. We would do well to graciously accept. We could use a few more honored guests in our court, if it please Your majesty.
+      yes:
+        heart_size: -1
+        last_word: I shall bring glad tidings.
+      no:
+        heart_size: 1
+        last_word: Of course, my King.
+    - text: |
+        It seems Your Grace has made special concessions for our wounded. I'm sure my dear brother whispers in your ear sweetly as ever. Yet, with such measures, perhaps we can afford more wounded. I would have Your Grace lower the age of conscription by two years.
+      filter: princess_disabled_filter
+      yes:
+        heart_size: -1
+        wealth: 10
+      no:
+        heart_size: 1
+  - - text: |
+        My King, by all accounts the Kingdom to the East prepares for war against us. I suggest we strike them swiftly and completely, before their preparations are complete.
+      yes:
+        heart_size: -1
+        wealth: 10
+        last_word: Then we shall mobilize promptly.
+      no:
+        heart_size: 1
+
+  # - - text: |
+  #       That good-for-nothing tramp killed our dear mother on the day of his birth. If you don't grow a spine, he'll be the death of you, too.
+  #     yes:
+  #       heart_size: 1
+  #       happiness: 10
+  #       wealth: -10
+  #     no:
+  #       heart_size: -1
