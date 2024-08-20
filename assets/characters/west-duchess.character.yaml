@@ -8,6 +8,7 @@ requests:
         heart_size: -1
         happiness: -5
         last_word: Your Majesty's wisdom is a vast as our kingdom.
+        text: Relax charters
       no:
         heart_size: 1
         last_word: I would never question Your Lordship.

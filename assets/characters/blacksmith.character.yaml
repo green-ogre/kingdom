@@ -11,6 +11,7 @@ requests:
         heart_size: -1
         happiness: -10
         wealth: 5
+        text: Provision slaves
       no:
         heart_size: 1
         last_word: What a waste.
@@ -20,5 +21,6 @@ requests:
         heart_size: -1
         happiness: -10
         wealth: 5
+        text: Provision slaves
       no:
         heart_size: 1

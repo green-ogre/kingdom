@@ -8,6 +8,7 @@ requests:
         heart_size: 1
         happiness: 5
         wealth: 0
+        text: Donate animal
       no:
         heart_size: -1
   - - text: |
@@ -16,5 +17,6 @@ requests:
         heart_size: -1
         happiness: 5
         last_word: Your humble servant thanks you dearly.
+        text: Hang witch
       no:
         heart_size: 1

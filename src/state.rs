@@ -63,6 +63,7 @@ pub struct KingdomState {
 #[derive(Debug, Deserialize, Default, Asset, Resource, Reflect, Clone)]
 #[serde(default)]
 pub struct StateUpdate {
+    pub text: Option<String>,
     pub heart_size: f32,
     pub wealth: f32,
     pub happiness: f32,

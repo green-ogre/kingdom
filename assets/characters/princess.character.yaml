@@ -11,11 +11,12 @@ requests:
         heart_size: 1
         last_word: Of course, my King.
     - text: |
-        It seems Your Grace has made special concessions for our wounded. I'm sure my dear brother whispers in your ear sweetly as ever. Yet, with such measures, perhaps we can afford more wounded. I would have Your Grace lower the age of conscription by two years.
+        It seems Your Grace has made special concessions for our wounded. I'm sure my dear brother whispers in your ear sweetly as ever. Yet, with such measures, perhaps we can afford more. I would have Your Grace lower the age of conscription by two years.
       filter: princess_disabled_filter
       yes:
         heart_size: -1
         wealth: 10
+        text: Conscript children
       no:
         heart_size: 1
   - - text: |

@@ -7,6 +7,7 @@ requests:
       yes:
         heart_size: -1
         happiness: -10
+        text: Hang the pagans
       no:
         heart_size: 1
       response_handlers: [nun_paganism]
@@ -15,5 +16,6 @@ requests:
       yes:
         heart_size: 1
         wealth: -10
+        text: Foster education
       no:
         heart_size: -1

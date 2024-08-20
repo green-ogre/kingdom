@@ -1,6 +1,6 @@
 use super::{Cursor, InsightToolTip, UiNode, FONT_PATH};
 use crate::{
-    character::{Character, SelectedCharacter},
+    character::{Character, ResponseResource, SelectedCharacter},
     type_writer::TypeWriter,
     CharacterSet,
 };
@@ -82,6 +82,7 @@ fn selection_ui(
     >,
     windows: Query<&Window>,
     mut input: EventReader<MouseButtonInput>,
+    response_res: Res<ResponseResource>,
 ) {
     let Ok(selected_character) = selected_character.get_single() else {
         for entity in decision_box_entities.iter() {
@@ -127,7 +128,10 @@ fn selection_ui(
         commands.spawn((
             DecisionBox::No,
             TextBundle::from_section(
-                "I Do Not Concur",
+                response_res
+                    .no
+                    .clone()
+                    .unwrap_or_else(|| String::from("Dismiss")),
                 TextStyle {
                     font_size: 70.0,
                     font: server.load(FONT_PATH),
@@ -148,7 +152,10 @@ fn selection_ui(
         commands.spawn((
             DecisionBox::Yes,
             TextBundle::from_section(
-                "I Concur",
+                response_res
+                    .yes
+                    .clone()
+                    .unwrap_or_else(|| String::from("Grant wish")),
                 TextStyle {
                     font_size: 70.0,
                     font: server.load(FONT_PATH),

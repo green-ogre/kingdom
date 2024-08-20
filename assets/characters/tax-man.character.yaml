@@ -7,7 +7,9 @@ requests:
       yes:
         heart_size: -1
         happiness: -10
+        wealth: 10
         last_word: Your Majesty is wise in all things.
+        text: Raise quotas
       no:
         heart_size: 1
         last_word: If it please Your Majesty.

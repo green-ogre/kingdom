@@ -8,41 +8,53 @@ requests:
       response_handlers: [dream_summon]
       mask: Neutral
       yes:
+        text: Who are you
       no:
+        text: I did not
     - text: |
         Oh but He did! The kingdom balances on the edge of a knife. And so, I am here.
       filter: summon_no
       mask: Happy
       yes:
+        text: "..."
       no:
+        text: "..."
       response_handlers: [set_cardiac_dream]
     # I require assistance
     - text: |
-        Indeed you do.
+        I'm sure Your Grace is familiar. The kingdom balances on the edge of a knife. And so, I am here.
       filter: summon_yes
       mask: Happy
       yes:
+        text: "..."
       no:
+        text: "..."
       response_handlers: [set_cardiac_dream]
     - text: |
         Your Majesty's cardiac affliction is rather crude work. How many have carried such a burden, I wonder. No matter, we will use it to our advantage. Please, present Your Grace's hand.
       yes:
-      mask: Sad
+        text: "Comply"
       no:
+        text: "Resist"
+      mask: Sad
       filter: cardiac_dream
       response_handlers: [present_hand, conditional_succ]
     - text: |
         Your Majesty has no choice in the matter. Forgive me, for it was Your Majesty who summoned me.
       mask: Neutral
       yes:
+        text: "..."
       no:
+        text: "..."
       filter: no_choice
       response_handlers: [succ]
     - text: |
-        I have bestowed upon Your Grace a gift of great insight. Its power is vast in the hands of a King, but it will exact a heavy price.
+        I have bestowed upon Your Grace a gift of great insight. Squeeze Your hand tight to call upon it. Its power is vast in the hands of a King, but it will exact a heavy price.
       mask: Happy
       yes:
+        text: "..."
       no:
+        text: "Begone"
       filter: this_gift
   # day two
   - - text: |

@@ -5,6 +5,7 @@ requests:
   - - text: |
         Would Your Majesty consider releasing the royal grain stores early this year? We in the west were not so fortunate last harvest. I doubt our stores will last, and we can't afford the spring prices.
       yes:
+        text: Release stores
         heart_size: 1
         happiness: 5
         wealth: -10

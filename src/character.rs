@@ -31,6 +31,7 @@ impl Plugin for CharacterPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(YamlAssetPlugin::<Character>::new(&["character.yaml"]))
             .insert_resource(TypeWriter::default())
+            .insert_resource(ResponseResource::default())
             .insert_resource(ActiveMask(Mask::None))
             .add_systems(
                 OnEnter(GameState::Main),
@@ -52,6 +53,12 @@ impl Plugin for CharacterPlugin {
             )
             .register_type::<CharacterUi>();
     }
+}
+
+#[derive(Debug, Resource, Default)]
+pub struct ResponseResource {
+    pub yes: Option<String>,
+    pub no: Option<String>,
 }
 
 fn entry_point(
@@ -194,6 +201,7 @@ pub fn choose_new_character(
     mut next_time_state: ResMut<NextState<TimeState>>,
     despawn_insight: Res<DespawnInsight>,
     mut active_mask: ResMut<ActiveMask>,
+    mut response_res: ResMut<ResponseResource>,
 ) {
     commands.run_system(despawn_insight.0);
     let mut rng = thread_rng();
@@ -312,6 +320,10 @@ pub fn choose_new_character(
 
     let character = character_assets.get_mut(&new_handle).unwrap();
     character.set_used(state.day, request_index);
+    if let Some(req) = character.request(state.day) {
+        response_res.yes = req.yes.text.clone();
+        response_res.no = req.no.text.clone();
+    }
 
     let sliding_intro =
         if let Ok((entity, mut selected_character)) = selected_character.get_single_mut() {

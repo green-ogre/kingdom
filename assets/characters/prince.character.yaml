@@ -12,6 +12,7 @@ requests:
         happiness: 15
         wealth: -10
         mask: Happy
+        text: Sponsor festival
       no:
         heart_size: -1
         mask: Sad
@@ -22,6 +23,7 @@ requests:
         heart_size: 1
         happiness: 10
         wealth: -10
+        text: Build community house
       no:
         heart_size: -1
   - - text: |
@@ -30,5 +32,6 @@ requests:
         heart_size: 1
         happiness: 10
         wealth: -10
+        text: Distribute reserves
       no:
         heart_size: -1
